@@ -16,6 +16,7 @@ on:
   pull_request:
     branches: [automation]
   workflow_dispatch:  # Manual trigger
+  workflow_call:      # Allow being called from sync-upstream.yml
   schedule:
     # Rebuild weekly to catch any issues
     - cron: '0 4 * * 0'
