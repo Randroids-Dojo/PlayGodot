@@ -425,22 +425,22 @@ playgodot/
 
 ## Roadmap
 
-### v0.1.0 - Foundation
-- [ ] WebSocket server addon for Godot 4.x
-- [ ] Python client with async/await API
-- [ ] Basic node interaction (get/set/call)
-- [ ] Mouse and keyboard input simulation
-- [ ] Screenshot capture
+### v0.1.0 - Foundation ✅
+- [x] WebSocket server addon for Godot 4.x
+- [x] Python client with async/await API
+- [x] Basic node interaction (get/set/call)
+- [x] Mouse and keyboard input simulation
+- [x] Screenshot capture
 
-### v0.2.0 - Testing Features
-- [ ] Signal waiting
-- [ ] Node existence/visibility waiting
-- [ ] Screenshot comparison
+### v0.2.0 - Testing Features ✅
+- [x] Signal waiting
+- [x] Node existence/visibility waiting
+- [x] Screenshot comparison
 - [ ] pytest plugin
 
-### v0.3.0 - Advanced Features
-- [ ] Touch/gesture simulation
-- [ ] Visual regression testing
+### v0.3.0 - Advanced Features ✅
+- [x] Touch/gesture simulation
+- [x] Visual regression testing
 - [ ] Record & playback
 - [ ] Performance metrics
 
