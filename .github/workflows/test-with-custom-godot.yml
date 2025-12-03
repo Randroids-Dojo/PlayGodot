@@ -1,0 +1,82 @@
+# Test PlayGodot against our custom Godot fork
+name: Integration Tests (Custom Godot)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'python/**'
+      - 'addons/**'
+      - 'examples/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  # Also run when Godot fork is updated
+  repository_dispatch:
+    types: [godot-build-complete]
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    name: Test with Custom Godot
+
+    steps:
+      - name: Checkout PlayGodot
+        uses: actions/checkout@v4
+
+      - name: Download custom Godot
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          repo: Randroids-Dojo/godot
+          workflow: build-automation.yml
+          branch: automation
+          name: godot-automation-linux
+          path: godot-bin
+        continue-on-error: true
+        id: custom-godot
+
+      # Fallback to official Godot if custom build not available
+      - name: Setup official Godot (fallback)
+        if: steps.custom-godot.outcome == 'failure'
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.3.0
+
+      - name: Setup custom Godot
+        if: steps.custom-godot.outcome == 'success'
+        run: |
+          chmod +x godot-bin/godot.linuxbsd.editor.x86_64
+          sudo mv godot-bin/godot.linuxbsd.editor.x86_64 /usr/local/bin/godot
+          echo "Using custom Godot build"
+          godot --version
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd python
+          pip install -e ".[dev]"
+
+      - name: Run unit tests
+        run: |
+          cd python
+          pytest tests/ -v
+
+      - name: Run tic-tac-toe integration tests
+        run: |
+          cd examples/tic-tac-toe
+          pytest tests/ -v --tb=short
+        timeout-minutes: 10
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.custom-godot.outcome }}" == "success" ]; then
+            echo "✅ Tested with **custom Godot fork**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Tested with **official Godot** (custom build not available)" >> $GITHUB_STEP_SUMMARY
+          fi
