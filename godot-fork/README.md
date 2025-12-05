@@ -29,6 +29,7 @@ Copy these files to your fork's `.github/workflows/`:
 
 - `sync-upstream.yml` - Nightly rebase on upstream
 - `build-automation.yml` - Build Godot with automation features
+- `playgodot-integration.yml` - Run PlayGodot tests against builds
 
 ```bash
 cp /path/to/PlayGodot/godot-fork/workflows/*.yml .github/workflows/
@@ -46,18 +47,35 @@ Randroids-Dojo/godot:automation ──●──●──●──●──●─
                                    └── our automation commits
 ```
 
-## Files to Modify in Godot
+## Implementation Status
 
-### Phase 1: Automation Protocol (extend existing debugger)
+The `automation` branch at [Randroids-Dojo/godot](https://github.com/Randroids-Dojo/godot/tree/automation) includes:
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 1 | Automation Protocol | ✅ Complete |
+| 2 | Input Injection | ⏳ Planned |
+| 3 | Headless Screenshots | ⏳ Planned |
+
+## Files Modified in Godot
+
+### Phase 1: Automation Protocol ✅
 
 ```
 core/debugger/
-├── remote_debugger.cpp    # Add automation message handlers
-├── remote_debugger.h      # Add automation methods
-└── engine_debugger.cpp    # Register automation capture
+├── remote_debugger.cpp    # Automation message handlers implemented
+├── remote_debugger.h      # Automation methods declared
+└── (registered in RemoteDebugger constructor)
 ```
 
-### Phase 2: Input Injection
+**Commands supported:**
+- `automation:get_tree` - Get full scene tree
+- `automation:get_node` - Get node by path
+- `automation:get_property` - Get property value
+- `automation:set_property` - Set property value
+- `automation:call_method` - Call method on node
+
+### Phase 2: Input Injection (Planned)
 
 ```
 core/input/
@@ -65,7 +83,7 @@ core/input/
 └── input.h                # Declare inject_event()
 ```
 
-### Phase 3: Headless Screenshots
+### Phase 3: Headless Screenshots (Planned)
 
 ```
 servers/rendering/
