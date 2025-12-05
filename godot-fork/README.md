@@ -54,7 +54,7 @@ The `automation` branch at [Randroids-Dojo/godot](https://github.com/Randroids-D
 | Phase | Feature | Status |
 |-------|---------|--------|
 | 1 | Automation Protocol | ✅ Complete |
-| 2 | Input Injection | ⏳ Planned |
+| 2 | Input Injection | ✅ Complete |
 | 3 | Headless Screenshots | ⏳ Planned |
 
 ## Files Modified in Godot
@@ -75,13 +75,20 @@ core/debugger/
 - `automation:set_property` - Set property value
 - `automation:call_method` - Call method on node
 
-### Phase 2: Input Injection (Planned)
+### Phase 2: Input Injection ✅
 
 ```
-core/input/
-├── input.cpp              # Add inject_event() method
-└── input.h                # Declare inject_event()
+core/debugger/
+├── remote_debugger.cpp    # Input injection methods added
+└── remote_debugger.h      # Input injection methods declared
 ```
+
+**Commands supported:**
+- `automation:mouse_button` - Click at position
+- `automation:mouse_motion` - Move mouse
+- `automation:key` - Press/release keyboard key
+- `automation:touch` - Touch screen input
+- `automation:action` - Trigger game actions
 
 ### Phase 3: Headless Screenshots (Planned)
 
