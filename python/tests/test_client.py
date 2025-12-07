@@ -1,23 +1,25 @@
-"""Tests for the WebSocket client."""
+"""Tests for the NativeClient."""
 
 import pytest
-from playgodot.client import Client
+from playgodot.native_client import NativeClient
 
 
-class TestClient:
-    """Tests for the Client class."""
+class TestNativeClient:
+    """Tests for the NativeClient class."""
 
-    def test_url_generation(self) -> None:
-        """Test that the URL is correctly generated."""
-        client = Client(host="localhost", port=9999)
-        assert client.url == "ws://localhost:9999"
+    def test_default_host_port(self) -> None:
+        """Test default host and port."""
+        client = NativeClient()
+        assert client.host == "localhost"
+        assert client.port == 6007
 
     def test_custom_host_port(self) -> None:
         """Test custom host and port."""
-        client = Client(host="192.168.1.1", port=8888)
-        assert client.url == "ws://192.168.1.1:8888"
+        client = NativeClient(host="192.168.1.1", port=8888)
+        assert client.host == "192.168.1.1"
+        assert client.port == 8888
 
     def test_not_connected_by_default(self) -> None:
         """Test that client is not connected by default."""
-        client = Client()
+        client = NativeClient()
         assert not client.is_connected
