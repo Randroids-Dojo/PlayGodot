@@ -16,10 +16,27 @@ func _ready() -> void:
 	_commands = Commands.new(self)
 	add_child(_commands)
 
+	# In headless mode, set viewport size from project settings
+	# This ensures UI layout is calculated correctly
+	_setup_headless_viewport()
+
 	# Check for custom port from command line or environment
 	_port = _get_port()
 
 	_start_server()
+
+
+func _setup_headless_viewport() -> void:
+	if not DisplayServer.get_name() == "headless":
+		return
+
+	# Get window size from project settings
+	var width = ProjectSettings.get_setting("display/window/size/viewport_width", 1152)
+	var height = ProjectSettings.get_setting("display/window/size/viewport_height", 648)
+
+	# Set the root viewport size
+	get_tree().root.size = Vector2i(width, height)
+	print("[PlayGodot] Set headless viewport size to %dx%d" % [width, height])
 
 
 func _get_port() -> int:
