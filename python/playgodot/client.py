@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import websockets
-from websockets.client import WebSocketClientProtocol
+
+if TYPE_CHECKING:
+    from websockets.asyncio.client import ClientConnection
 
 from playgodot.exceptions import ConnectionError, CommandError, TimeoutError
 
@@ -18,7 +20,7 @@ class Client:
     def __init__(self, host: str = "localhost", port: int = 9999):
         self.host = host
         self.port = port
-        self._ws: WebSocketClientProtocol | None = None
+        self._ws: ClientConnection | None = None
         self._request_id = 0
         self._pending_requests: dict[int, asyncio.Future[Any]] = {}
         self._receive_task: asyncio.Task[None] | None = None
