@@ -12,8 +12,11 @@ Existing Godot testing tools (GdUnit4, GUT, GodotTestDriver) run *inside* the en
 - **Process isolation** - Tests can't crash with the game
 - **CI simplicity** - No need to understand Godot internals
 - **Familiar patterns** - API inspired by Playwright
+- **No addon required** - Uses Godot's native debugger protocol (requires custom Godot build)
 
 ## Architecture
+
+PlayGodot uses Godot's native debugger protocol with custom automation commands added to the RemoteDebugger. No in-game addon required.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -22,30 +25,30 @@ Existing Godot testing tools (GdUnit4, GUT, GodotTestDriver) run *inside* the en
 │                                                                         │
 │   External Process                           Godot Process              │
 │  ┌─────────────────────┐                   ┌─────────────────────┐      │
-│  │                     │    WebSocket      │                     │      │
-│  │   Python Client     │◄────────────────►│   PlayGodot Addon   │      │
-│  │                     │    JSON-RPC       │                     │      │
+│  │                     │   TCP Port 6007   │                     │      │
+│  │   Python Client     │◄────────────────►│   RemoteDebugger    │      │
+│  │                     │   Native Variant  │   (C++ engine code) │      │
 │  │  ┌───────────────┐  │                   │  ┌───────────────┐  │      │
-│  │  │ playgodot     │  │   Commands:       │  │ Automate      │  │      │
-│  │  │               │  │   ─────────────►  │  │ Server        │  │      │
-│  │  │ .launch()     │  │   • click         │  │               │  │      │
-│  │  │ .click()      │  │   • type          │  │ • Receives    │  │      │
-│  │  │ .get_node()   │  │   • get_node      │  │   commands    │  │      │
-│  │  │ .call()       │  │   • call_method   │  │ • Executes    │  │      │
-│  │  │ .wait_for()   │  │   • screenshot    │  │   in game     │  │      │
-│  │  │ .screenshot() │  │   • wait_signal   │  │ • Returns     │  │      │
-│  │  │               │  │                   │  │   results     │  │      │
+│  │  │ playgodot     │  │   Commands:       │  │ Automation    │  │      │
+│  │  │               │  │   ─────────────►  │  │ Capture       │  │      │
+│  │  │ .launch()     │  │   • get_node      │  │               │  │      │
+│  │  │ .click()      │  │   • get_property  │  │ • Native C++  │  │      │
+│  │  │ .get_node()   │  │   • set_property  │  │ • No GDScript │  │      │
+│  │  │ .call_method()│  │   • call_method   │  │ • Binary      │  │      │
+│  │  │ .screenshot() │  │   • screenshot    │  │   protocol    │  │      │
+│  │  │ .pause()      │  │   • inject_*      │  │ • Fast &      │  │      │
+│  │  │               │  │   • scene_tree    │  │   reliable    │  │      │
 │  │  └───────────────┘  │   Responses:      │  └───────────────┘  │      │
 │  │                     │   ◄─────────────  │                     │      │
-│  │  async/await API    │   • node_data     │  Runs in _process() │      │
-│  │                     │   • return_value  │                     │      │
+│  │  async/await API    │   • node_info     │  Runs in engine     │      │
+│  │                     │   • call_result   │  debug loop         │      │
 │  └─────────────────────┘   • screenshots   └─────────────────────┘      │
-│           │                • signals                  ▲                 │
-│           │                                           │                 │
-│           ▼                                           │                 │
+│           │                • scene_data             ▲                   │
+│           │                                         │                   │
+│           ▼                                         │                   │
 │  ┌─────────────────────┐                   ┌─────────────────────┐      │
-│  │   Test Framework    │                   │   Godot Engine      │      │
-│  │   (pytest, etc.)    │                   │   (headless mode)   │      │
+│  │   Test Framework    │                   │   Custom Godot      │      │
+│  │   (pytest, etc.)    │                   │   (automation fork) │      │
 │  └─────────────────────┘                   └─────────────────────┘      │
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -53,19 +56,37 @@ Existing Godot testing tools (GdUnit4, GUT, GodotTestDriver) run *inside* the en
 
 ## Installation
 
+### Requirements
+
+1. **Custom Godot build** with automation support:
+   - Clone: [Randroids-Dojo/godot](https://github.com/Randroids-Dojo/godot) (automation branch)
+   - Build with scons: `scons platform=macos arch=arm64 target=editor`
+
+2. **PlayGodot Python library**:
+   - Clone: [Randroids-Dojo/PlayGodot](https://github.com/Randroids-Dojo/PlayGodot)
+
 ### Python Client
 
 ```bash
+# From PyPI (coming soon)
 pip install playgodot
+
+# From source
+git clone https://github.com/Randroids-Dojo/PlayGodot.git
+cd PlayGodot/python
+pip install -e .
 ```
 
-### Godot Addon
+### Godot Setup
 
-1. Copy `addons/playgodot/` to your Godot project
-2. Enable the plugin in Project Settings → Plugins
-3. The automation server starts automatically in debug builds
+No addon required! The automation protocol is built into the custom Godot fork. Just launch your game with the `--remote-debug` flag:
 
-Or install via Asset Library (coming soon).
+```bash
+# Launch with remote debugging enabled
+godot --path /path/to/project --remote-debug tcp://127.0.0.1:6007
+```
+
+Or use PlayGodot's `Godot.launch()` which handles this automatically.
 
 ## Quick Start
 
@@ -320,55 +341,44 @@ jobs:
         run: pytest tests/ -v --tb=short
 ```
 
-## JSON-RPC Protocol
+## Native Debugger Protocol
 
-PlayGodot uses JSON-RPC 2.0 over WebSocket. This enables building clients in any language.
+PlayGodot uses Godot's native debugger protocol over TCP (port 6007). Messages are serialized using Godot's binary Variant format for maximum performance and type fidelity.
 
-### Request Format
+### Protocol Overview
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "get_node",
-  "params": {
-    "path": "/root/Main/Player"
-  }
-}
+The protocol extends Godot's existing `RemoteDebugger` with an `automation` capture that handles game automation commands. All communication uses Godot's native binary serialization.
+
+### Message Format
+
+```
+[4 bytes: message length]
+[message_type: String]
+[data: Array of Variants]
 ```
 
-### Response Format
+### Available Commands
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "path": "/root/Main/Player",
-    "class": "CharacterBody2D",
-    "properties": {
-      "position": {"x": 100, "y": 200},
-      "health": 100
-    }
-  }
-}
-```
-
-### Available Methods
-
-| Method | Params | Description |
-|--------|--------|-------------|
-| `get_node` | `path` | Get node info |
-| `get_property` | `path`, `property` | Get property value |
-| `set_property` | `path`, `property`, `value` | Set property value |
-| `call_method` | `path`, `method`, `args?` | Call node method |
-| `click` | `path` or `x`, `y` | Simulate click |
-| `press_key` | `key`, `modifiers?` | Press keyboard key |
-| `press_action` | `action` | Press input action |
-| `screenshot` | `path?` | Capture screenshot |
-| `wait_signal` | `signal`, `source?`, `timeout?` | Wait for signal |
-| `get_tree` | - | Get scene tree structure |
-| `change_scene` | `path` | Load new scene |
+| Command | Data | Response | Description |
+|---------|------|----------|-------------|
+| `automation:get_node` | `[path]` | `automation:node_info` | Get node info and properties |
+| `automation:get_property` | `[path, property]` | `automation:property_value` | Get single property value |
+| `automation:set_property` | `[path, property, value]` | `automation:property_set` | Set property value |
+| `automation:call_method` | `[path, method, args]` | `automation:call_result` | Call node method |
+| `automation:screenshot` | `[node_path?]` | `automation:screenshot` | Capture PNG screenshot |
+| `automation:scene_tree` | `[]` | `automation:scene_tree` | Get full scene tree |
+| `automation:query_nodes` | `[pattern]` | `automation:query_result` | Find nodes by pattern |
+| `automation:count_nodes` | `[pattern]` | `automation:count_result` | Count matching nodes |
+| `automation:current_scene` | `[]` | `automation:current_scene` | Get current scene path/name |
+| `automation:change_scene` | `[scene_path]` | `automation:scene_changed` | Load new scene |
+| `automation:reload_scene` | `[]` | `automation:scene_reloaded` | Reload current scene |
+| `automation:pause` | `[paused?]` | `automation:pause_result` | Get/set pause state |
+| `automation:time_scale` | `[scale?]` | `automation:time_scale_result` | Get/set time scale |
+| `automation:inject_mouse_button` | `[pos, button, pressed, double?]` | - | Simulate mouse click |
+| `automation:inject_mouse_motion` | `[pos, relative]` | - | Simulate mouse move |
+| `automation:inject_key` | `[keycode, pressed, physical?]` | - | Simulate key press |
+| `automation:inject_action` | `[action, pressed, strength?]` | - | Simulate input action |
+| `automation:inject_touch` | `[index, pos, pressed]` | - | Simulate touch input |
 
 ## Comparison with Other Tools
 
@@ -381,47 +391,34 @@ PlayGodot uses JSON-RPC 2.0 over WebSocket. This enables building clients in any
 | **Node drivers** | ✅ | ✅ | ✅ | ❌ |
 | **Signal waiting** | ✅ | ✅ | ✅ | ✅ |
 | **CI-friendly** | ✅ | ✅ | ✅ | ✅ |
-| **No game modification** | ❌* | ❌ | ❌ | ❌ |
+| **No game modification** | ✅* | ❌ | ❌ | ❌ |
+| **Native protocol** | ✅ | ❌ | ❌ | ❌ |
 
-*Requires addon installed, but no test code in game.
+*Requires custom Godot build, but no changes to your game project.
 
 ## Project Structure
 
 ```
-playgodot/
+PlayGodot/
 ├── python/                     # Python client library
 │   ├── playgodot/
 │   │   ├── __init__.py
-│   │   ├── client.py          # WebSocket client
-│   │   ├── godot.py           # Main Godot class
-│   │   ├── node.py            # Node wrapper
-│   │   ├── input.py           # Input simulation
-│   │   ├── screenshot.py      # Screenshot utilities
+│   │   ├── godot.py           # Main Godot class with async API
+│   │   ├── native_client.py   # Native debugger protocol client
+│   │   ├── variant.py         # Godot Variant serialization
 │   │   └── exceptions.py      # Custom exceptions
 │   ├── tests/
 │   └── pyproject.toml
 │
-├── addons/                     # Godot addon
-│   └── playgodot/
-│       ├── plugin.cfg
-│       ├── playgodot.gd       # Main plugin script
-│       ├── server.gd          # WebSocket server
-│       ├── commands.gd        # Command handlers
-│       ├── input_simulator.gd # Input simulation
-│       └── screenshot.gd      # Screenshot capture
+├── docs/                       # Documentation
+│   ├── getting-started.md
+│   ├── api-reference.md
+│   └── protocol.md
 │
-├── protocol/                   # Protocol specification
-│   └── PROTOCOL.md
-│
-├── examples/                   # Example projects
-│   ├── tic-tac-toe/
-│   └── platformer/
-│
-└── docs/                       # Documentation
-    ├── getting-started.md
-    ├── api-reference.md
-    └── ci-integration.md
+└── README.md
 ```
+
+**Note:** The Godot-side automation is implemented in the custom Godot fork at [Randroids-Dojo/godot](https://github.com/Randroids-Dojo/godot) in `core/debugger/remote_debugger.cpp`.
 
 ## Roadmap
 
@@ -436,19 +433,20 @@ playgodot/
 - [x] Signal waiting
 - [x] Node existence/visibility waiting
 - [x] Screenshot comparison
-- [ ] pytest plugin
 
-### v0.3.0 - Advanced Features ✅
-- [x] Touch/gesture simulation
-- [x] Visual regression testing
-- [ ] Record & playback
-- [ ] Performance metrics
+### v0.3.0 - Native Protocol Migration ✅
+- [x] Migrated from WebSocket addon to native debugger protocol
+- [x] No addon required - automation built into custom Godot fork
+- [x] Binary Variant serialization for performance
+- [x] Extended input injection (mouse, keyboard, touch, actions)
+- [x] Scene management (tree queries, change/reload)
+- [x] Game control (pause, time scale)
 
 ### v1.0.0 - Production Ready
-- [ ] Godot 4.x full support
 - [ ] Comprehensive documentation
-- [ ] Asset Library publication
 - [ ] PyPI publication
+- [ ] CI/CD examples
+- [ ] Visual regression testing
 
 ## Contributing
 
@@ -457,24 +455,25 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ### Development Setup
 
 ```bash
-# Clone the repo
-git clone https://github.com/your-org/playgodot.git
-cd playgodot
+# Clone the repos
+git clone https://github.com/Randroids-Dojo/PlayGodot.git
+git clone https://github.com/Randroids-Dojo/godot.git
+cd godot && git checkout automation
+
+# Build custom Godot
+scons platform=macos arch=arm64 target=editor -j8
 
 # Python client development
-cd python
+cd ../PlayGodot/python
 pip install -e ".[dev]"
 pytest
-
-# Godot addon development
-# Open addons/playgodot/ in Godot editor
 ```
 
 ### Areas for Contribution
 
-- **Protocol design** - Help refine the JSON-RPC protocol
+- **Protocol design** - Help refine the automation protocol
 - **Python client** - Implement client features
-- **Godot addon** - Implement server-side handlers
+- **Godot C++ code** - Add new automation commands to RemoteDebugger
 - **Documentation** - Improve docs and examples
 - **Testing** - Add tests for the framework itself
 - **Other clients** - TypeScript, Rust, Go clients
