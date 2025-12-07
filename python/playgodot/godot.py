@@ -239,8 +239,11 @@ class Godot:
         Returns:
             True if the node exists.
         """
-        result = await self._client.send("node_exists", {"path": path})
-        return result.get("exists", False)
+        try:
+            result = await self._client.send("get_node", {"path": path})
+            return result is not None
+        except NodeNotFoundError:
+            return False
 
     async def query_nodes(self, pattern: str) -> list[str]:
         """Query node paths matching a pattern.
