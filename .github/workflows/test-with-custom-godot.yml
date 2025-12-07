@@ -83,10 +83,17 @@ jobs:
           ls -la examples/tic-tac-toe/godot/
           cat examples/tic-tac-toe/godot/project.godot
 
+      - name: Test Godot headless startup
+        run: |
+          echo "Testing if Godot can start and run autoload..."
+          cd examples/tic-tac-toe/godot
+          timeout 10 godot --headless --path . --quit-after 3 2>&1 || echo "Godot exited with code $?"
+          echo "Godot startup test complete"
+
       - name: Run tic-tac-toe integration tests
         run: |
           cd examples/tic-tac-toe
-          pytest tests/ -v --tb=short
+          pytest tests/ -v -s --tb=short
         timeout-minutes: 3
 
       - name: Test summary
