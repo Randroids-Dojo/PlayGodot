@@ -1,59 +1,46 @@
-"""Main Godot class for game automation."""
+"""Main Godot class for game automation.
+
+Uses Godot's native RemoteDebugger protocol for automation.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import subprocess
 from pathlib import Path
-from typing import Any, Callable, TypeVar, Union, Protocol
+from typing import Any, Callable, TypeVar
 from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
 
-from playgodot.client import Client
 from playgodot.native_client import NativeClient
 from playgodot.node import Node
-from playgodot.input import InputSimulator
 from playgodot.native_input import NativeInputSimulator
-from playgodot.screenshot import ScreenshotManager
 from playgodot.exceptions import ConnectionError, NodeNotFoundError, TimeoutError
 
 T = TypeVar("T")
 
-# Protocol type for clients (both WebSocket and Native)
-ClientType = Union[Client, NativeClient]
-InputType = Union[InputSimulator, NativeInputSimulator]
-
 
 class Godot:
-    """Main class for automating Godot games."""
+    """Main class for automating Godot games.
+
+    Uses Godot's native RemoteDebugger protocol for all communication.
+    Requires a Godot build with automation support.
+    """
 
     def __init__(
         self,
-        client: ClientType,
+        client: NativeClient,
         process: subprocess.Popen[bytes] | None = None,
-        native: bool = False,
     ):
         """Initialize Godot automation instance.
 
         Args:
-            client: The WebSocket or Native TCP client.
+            client: The native TCP client.
             process: Optional subprocess for the Godot process.
-            native: Whether using native debugger protocol.
         """
         self._client = client
         self._process = process
-        self._native = native
-
-        if native and isinstance(client, NativeClient):
-            self._input: InputType = NativeInputSimulator(client)
-        else:
-            self._input = InputSimulator(client)  # type: ignore[arg-type]
-
-        # Screenshot only works with addon for now
-        if isinstance(client, Client):
-            self._screenshot = ScreenshotManager(client)
-        else:
-            self._screenshot = None  # type: ignore[assignment]
+        self._input = NativeInputSimulator(client)
 
     @classmethod
     @asynccontextmanager
@@ -63,11 +50,10 @@ class Godot:
         *,
         headless: bool = True,
         resolution: tuple[int, int] | None = None,
-        port: int = 9999,
+        port: int = 6007,
         timeout: float = 30.0,
         godot_path: str | None = None,
         verbose: bool = False,
-        native: bool = False,
     ) -> AsyncGenerator[Godot, None]:
         """Launch a Godot project and connect to it.
 
@@ -75,11 +61,10 @@ class Godot:
             project_path: Path to the Godot project directory.
             headless: Run without window (default True).
             resolution: Window resolution as (width, height).
-            port: WebSocket port (default 9999) or debugger port (default 6007).
+            port: Debugger port (default 6007).
             timeout: Connection timeout in seconds.
             godot_path: Path to Godot executable (auto-detected if not provided).
             verbose: Enable verbose logging.
-            native: Use native debugger protocol instead of WebSocket addon.
 
         Yields:
             A connected Godot instance.
@@ -99,78 +84,28 @@ class Godot:
         if verbose:
             cmd.append("--verbose")
 
-        # For native protocol, enable remote debugging
-        if native:
-            debug_port = port if port != 9999 else 6007
-            cmd.extend(["--remote-debug", f"tcp://127.0.0.1:{debug_port}"])
-            print(f"[PlayGodot] Starting Godot with remote debugging on port {debug_port}")
-        else:
-            debug_port = port
+        # Enable remote debugging
+        cmd.extend(["--remote-debug", f"tcp://127.0.0.1:{port}"])
+        print(f"[PlayGodot] Starting Godot with remote debugging on port {port}")
+        print(f"[PlayGodot] Command: {' '.join(cmd)}")
 
-        print(f"[PlayGodot] Starting Godot: {' '.join(cmd)}")
-
-        client: ClientType
+        client = NativeClient(host="127.0.0.1", port=port)
         process: subprocess.Popen[bytes] | None = None
 
         try:
-            if native:
-                # For native protocol: start server FIRST, then launch Godot
-                # Godot will connect to us as a client
-                client = NativeClient(host="127.0.0.1", port=debug_port)
+            # Start listening before Godot launches
+            print(f"[PlayGodot] Starting debug server on port {port}...")
+            await client._start_server()
 
-                # Start listening before Godot launches
-                print(f"[PlayGodot] Starting debug server on port {debug_port}...")
-                await client._start_server()
+            # Launch Godot which will connect to us
+            process = subprocess.Popen(cmd)
 
-                # Now launch Godot which will connect to us
-                process = subprocess.Popen(cmd)
+            # Wait for Godot to connect
+            print(f"[PlayGodot] Waiting for Godot to connect...")
+            await client.connect(timeout=timeout)
+            print(f"[PlayGodot] Godot connected")
 
-                # Wait for Godot to connect
-                print(f"[PlayGodot] Waiting for Godot to connect...")
-                await client.connect(timeout=timeout)
-                print(f"[PlayGodot] Godot connected via native protocol")
-            else:
-                # For WebSocket: launch Godot first, then connect
-                process = subprocess.Popen(cmd)
-                client = Client(port=port)
-
-                # Wait for Godot to start and retry connection
-                connected = False
-                last_error = None
-                start_time = asyncio.get_event_loop().time()
-                attempt = 0
-
-                while asyncio.get_event_loop().time() - start_time < timeout:
-                    # Check if process crashed
-                    if process.poll() is not None:
-                        raise ConnectionError(
-                            f"Godot process exited with code {process.returncode}.\n"
-                            f"Command: {' '.join(cmd)}\n"
-                            f"Check the output above for errors."
-                        )
-
-                    try:
-                        attempt += 1
-                        if attempt % 10 == 1:
-                            print(f"[PlayGodot] WebSocket connection attempt {attempt}...")
-                        await client.connect(timeout=2.0)
-                        connected = True
-                        print(f"[PlayGodot] Connected after {attempt} attempts")
-                        break
-                    except Exception as e:
-                        last_error = e
-                        await asyncio.sleep(0.5)
-
-                if not connected:
-                    raise ConnectionError(
-                        f"Failed to connect to Godot after {timeout}s ({attempt} attempts).\n"
-                        f"Command: {' '.join(cmd)}\n"
-                        f"Last error: {last_error}\n"
-                        f"Process running: {process.poll() is None}\n"
-                        f"Check the Godot output above for errors."
-                    )
-
-            instance = cls(client, process, native=native)
+            instance = cls(client, process)
             yield instance
         finally:
             await client.disconnect()
@@ -185,29 +120,22 @@ class Godot:
     async def connect(
         cls,
         host: str = "localhost",
-        port: int = 9999,
+        port: int = 6007,
         timeout: float = 30.0,
-        native: bool = False,
     ) -> Godot:
         """Connect to an already-running Godot game.
 
         Args:
             host: The host to connect to.
-            port: The WebSocket port (default 9999) or debugger port (default 6007).
+            port: The debugger port (default 6007).
             timeout: Connection timeout in seconds.
-            native: Use native debugger protocol instead of WebSocket addon.
 
         Returns:
             A connected Godot instance.
         """
-        if native:
-            # Use default debug port if not specified
-            actual_port = port if port != 9999 else 6007
-            client: ClientType = NativeClient(host=host, port=actual_port)
-        else:
-            client = Client(host=host, port=port)
+        client = NativeClient(host=host, port=port)
         await client.connect(timeout=timeout)
-        return cls(client, native=native)
+        return cls(client)
 
     async def disconnect(self) -> None:
         """Disconnect from the game."""
@@ -220,8 +148,8 @@ class Godot:
         """Find the Godot executable."""
         import shutil
 
-        # Common names for Godot executable
-        names = ["godot", "godot4", "Godot", "Godot4"]
+        # Common names for Godot executable (including fork)
+        names = ["godot-fork", "godot", "godot4", "Godot", "Godot4"]
 
         for name in names:
             path = shutil.which(name)
@@ -314,19 +242,17 @@ class Godot:
         result = await self._client.send("node_exists", {"path": path})
         return result.get("exists", False)
 
-    async def query_nodes(self, pattern: str) -> list[Node]:
-        """Query nodes matching a pattern.
+    async def query_nodes(self, pattern: str) -> list[str]:
+        """Query node paths matching a pattern.
 
         Args:
             pattern: A node path pattern (supports * wildcards).
 
         Returns:
-            A list of matching nodes.
+            A list of matching node paths.
         """
         result = await self._client.send("query_nodes", {"pattern": pattern})
-        return [
-            Node(self, node["path"], node) for node in result.get("nodes", [])
-        ]
+        return result if isinstance(result, list) else []
 
     async def count_nodes(self, pattern: str) -> int:
         """Count nodes matching a pattern.
@@ -338,9 +264,9 @@ class Godot:
             The number of matching nodes.
         """
         result = await self._client.send("count_nodes", {"pattern": pattern})
-        return result.get("count", 0)
+        return result if isinstance(result, int) else 0
 
-    # Input simulation (delegates to InputSimulator)
+    # Input simulation
 
     async def click(self, path_or_x: str | float, y: float | None = None) -> None:
         """Click on a node or at coordinates.
@@ -482,29 +408,6 @@ class Godot:
             message=f"Node '{path}' not visible",
         )
 
-    async def wait_for_signal(
-        self,
-        signal_name: str,
-        source: str | None = None,
-        timeout: float = 30.0,
-    ) -> dict[str, Any]:
-        """Wait for a signal to be emitted.
-
-        Args:
-            signal_name: The signal name.
-            source: Optional source node path.
-            timeout: Timeout in seconds.
-
-        Returns:
-            Signal data including any arguments.
-        """
-        params: dict[str, Any] = {"signal": signal_name, "timeout": timeout * 1000}
-        if source:
-            params["source"] = source
-
-        result = await self._client.send("wait_signal", params, timeout=timeout + 5)
-        return result
-
     async def wait_for(
         self,
         condition: Callable[[], Any],
@@ -526,22 +429,6 @@ class Godot:
             timeout=timeout,
             interval=interval,
         )
-
-    async def wait_frames(self, count: int) -> None:
-        """Wait for a number of frames.
-
-        Args:
-            count: Number of frames to wait.
-        """
-        await self._client.send("wait_frames", {"count": count})
-
-    async def wait_seconds(self, seconds: float) -> None:
-        """Wait for a number of seconds (game time).
-
-        Args:
-            seconds: Seconds to wait.
-        """
-        await self._client.send("wait_seconds", {"seconds": seconds})
 
     async def _wait_for(
         self,
@@ -591,51 +478,26 @@ class Godot:
 
         Returns:
             PNG image bytes.
-
-        Raises:
-            NotImplementedError: If using native protocol (screenshots not supported).
         """
-        if self._screenshot is None:
-            raise NotImplementedError(
-                "Screenshots are not supported with the native debugger protocol. "
-                "Use the WebSocket addon protocol for screenshot functionality."
-            )
-        return await self._screenshot.capture(path, node)
-
-    async def compare_screenshot(
-        self,
-        expected: str,
-        actual: str | None = None,
-    ) -> float:
-        """Compare screenshots."""
-        if self._screenshot is None:
-            raise NotImplementedError(
-                "Screenshots are not supported with the native debugger protocol."
-            )
-        return await self._screenshot.compare(expected, actual)
-
-    async def assert_screenshot(
-        self,
-        reference: str,
-        threshold: float = 0.99,
-    ) -> None:
-        """Assert screenshot matches reference."""
-        if self._screenshot is None:
-            raise NotImplementedError(
-                "Screenshots are not supported with the native debugger protocol."
-            )
-        await self._screenshot.assert_matches(reference, threshold)
+        result = await self._client.send("screenshot", {"node_path": node or ""})
+        if result is None:
+            raise RuntimeError("Failed to take screenshot")
+        png_data = result["data"]  # Already raw bytes from PackedByteArray
+        if path:
+            with open(path, "wb") as f:
+                f.write(png_data)
+        return png_data
 
     # Scene management
 
-    async def get_current_scene(self) -> str:
-        """Get the current scene path.
+    async def get_current_scene(self) -> dict[str, str]:
+        """Get the current scene info.
 
         Returns:
-            The resource path of the current scene.
+            Dict with 'path' and 'name' of the current scene.
         """
         result = await self._client.send("get_current_scene")
-        return result.get("path", "")
+        return result if result else {"path": "", "name": ""}
 
     async def change_scene(self, scene_path: str) -> None:
         """Change to a different scene.
@@ -662,11 +524,20 @@ class Godot:
 
     async def pause(self) -> None:
         """Pause the game."""
-        await self._client.send("pause")
+        await self._client.send("pause", {"paused": True})
 
     async def unpause(self) -> None:
         """Unpause the game."""
-        await self._client.send("unpause")
+        await self._client.send("pause", {"paused": False})
+
+    async def is_paused(self) -> bool:
+        """Check if the game is paused.
+
+        Returns:
+            True if game is paused.
+        """
+        result = await self._client.send("pause", {"paused": None})
+        return result.get("paused", False)
 
     async def set_time_scale(self, scale: float) -> None:
         """Set the game time scale.
@@ -674,4 +545,13 @@ class Godot:
         Args:
             scale: Time scale (1.0 = normal, 0.5 = half speed, etc.).
         """
-        await self._client.send("set_time_scale", {"scale": scale})
+        await self._client.send("time_scale", {"scale": scale})
+
+    async def get_time_scale(self) -> float:
+        """Get the current game time scale.
+
+        Returns:
+            The current time scale.
+        """
+        result = await self._client.send("time_scale", {"scale": None})
+        return result.get("scale", 1.0)

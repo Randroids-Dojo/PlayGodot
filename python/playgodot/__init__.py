@@ -1,8 +1,10 @@
-"""PlayGodot - External automation and testing framework for Godot Engine games."""
+"""PlayGodot - External automation and testing framework for Godot Engine games.
+
+Uses Godot's native RemoteDebugger protocol for automation.
+"""
 
 from playgodot.godot import Godot
 from playgodot.node import Node
-from playgodot.client import Client
 from playgodot.native_client import NativeClient
 from playgodot.exceptions import (
     PlayGodotError,
@@ -12,11 +14,10 @@ from playgodot.exceptions import (
     CommandError,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "Godot",
     "Node",
-    "Client",
     "NativeClient",
     "PlayGodotError",
     "ConnectionError",
