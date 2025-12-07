@@ -1,12 +1,12 @@
 # PlayGodot
 
-**External automation and testing framework for Godot Engine games.**
+**Game automation framework for Godot Engine - like [Playwright](https://playwright.dev/), but for games.**
 
-PlayGodot enables you to control and test Godot games from external scripts, similar to how [Playwright](https://playwright.dev/) automates web browsers. Write tests in Python, run them headlessly in CI, and automate gameplay verification.
+Control Godot games from Python. Automate gameplay, write E2E tests, capture screenshots, simulate input - all from external scripts running outside the engine.
 
 ## Why PlayGodot?
 
-Existing Godot testing tools (GdUnit4, GUT, GodotTestDriver) run *inside* the engine. PlayGodot runs *outside*, giving you:
+Existing Godot tools (GdUnit4, GUT, GodotTestDriver) run *inside* the engine. PlayGodot runs *outside*, giving you:
 
 - **Language freedom** - Write tests in Python, not just GDScript/C#
 - **Process isolation** - Tests can't crash with the game
@@ -14,9 +14,9 @@ Existing Godot testing tools (GdUnit4, GUT, GodotTestDriver) run *inside* the en
 - **Familiar patterns** - API inspired by Playwright
 - **No addon required** - Uses Godot's native debugger protocol (requires custom Godot build)
 
-## Architecture
+## How It Works
 
-PlayGodot uses Godot's native debugger protocol with custom automation commands added to the RemoteDebugger. No in-game addon required.
+PlayGodot connects to Godot's native debugger protocol with custom automation commands added to the RemoteDebugger. No in-game addon required - the automation layer is built into the engine.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -256,7 +256,7 @@ await game.unpause()
 await game.set_time_scale(0.5)  # Slow motion
 ```
 
-## Testing with pytest
+## E2E Testing with pytest
 
 ```python
 # test_game.py
@@ -382,17 +382,15 @@ The protocol extends Godot's existing `RemoteDebugger` with an `automation` capt
 
 ## Comparison with Other Tools
 
-| Feature | PlayGodot | GdUnit4 | GodotTestDriver | GUT |
-|---------|-----------|---------|-----------------|-----|
-| **Language** | Python (any) | GDScript, C# | C# only | GDScript |
-| **Runs externally** | ✅ | ❌ | ❌ | ❌ |
+| | PlayGodot | GdUnit4 | GodotTestDriver | GUT |
+|---|-----------|---------|-----------------|-----|
+| **Type** | Game automation | Unit testing | Integration testing | Unit testing |
+| **Language** | Python | GDScript, C# | C# | GDScript |
+| **Runs** | External process | Inside Godot | Inside Godot | Inside Godot |
 | **Input simulation** | ✅ | ✅ | ✅ | ❌ |
-| **Screenshot testing** | ✅ | ❌ | ❌ | ❌ |
-| **Node drivers** | ✅ | ✅ | ✅ | ❌ |
-| **Signal waiting** | ✅ | ✅ | ✅ | ✅ |
-| **CI-friendly** | ✅ | ✅ | ✅ | ✅ |
-| **No game modification** | ✅* | ❌ | ❌ | ❌ |
-| **Native protocol** | ✅ | ❌ | ❌ | ❌ |
+| **Screenshots** | ✅ | ❌ | ❌ | ❌ |
+| **Game modification** | None* | Addon | Addon | Addon |
+| **Protocol** | Native debugger | N/A | N/A | N/A |
 
 *Requires custom Godot build, but no changes to your game project.
 
