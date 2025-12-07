@@ -19,7 +19,7 @@ GODOT_PROJECT = Path(__file__).parent.parent / "godot"
 @pytest_asyncio.fixture
 async def game():
     """Fixture that launches the tic-tac-toe game and provides a connected client."""
-    async with Godot.launch(str(GODOT_PROJECT), headless=True, timeout=30.0) as g:
+    async with Godot.launch(str(GODOT_PROJECT), headless=True, timeout=15.0, verbose=True) as g:
         # Wait for the main scene to be ready
         await g.wait_for_node("/root/Main")
         yield g

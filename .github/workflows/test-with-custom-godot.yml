@@ -65,11 +65,17 @@ jobs:
           cd python
           pytest tests/ -v
 
+      - name: Import Godot project
+        run: |
+          echo "Importing tic-tac-toe project..."
+          godot --headless --path examples/tic-tac-toe/godot --import
+          echo "Import complete"
+
       - name: Run tic-tac-toe integration tests
         run: |
           cd examples/tic-tac-toe
           pytest tests/ -v --tb=short
-        timeout-minutes: 10
+        timeout-minutes: 5
 
       - name: Test summary
         if: always()
