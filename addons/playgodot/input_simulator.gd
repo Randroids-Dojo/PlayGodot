@@ -348,7 +348,11 @@ func pinch(params: Dictionary) -> Dictionary:
 
 func _get_node_center(node: Node) -> Variant:
 	if node is Control:
-		return node.get_global_rect().get_center()
+		# Use global_position + size/2 which works reliably in headless mode
+		# get_global_rect() can return zeros before layout is calculated
+		var pos = node.global_position
+		var sz = node.size
+		return pos + sz / 2.0
 	elif node is CanvasItem:
 		# For sprites and other 2D nodes
 		if node.has_method("get_global_transform"):
