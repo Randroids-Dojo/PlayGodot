@@ -65,11 +65,36 @@ jobs:
           cd python
           pytest tests/ -v
 
+      - name: Setup tic-tac-toe addon
+        run: |
+          # Remove symlink and copy actual addon files for CI compatibility
+          rm -rf examples/tic-tac-toe/godot/addons/playgodot
+          mkdir -p examples/tic-tac-toe/godot/addons
+          cp -r addons/playgodot examples/tic-tac-toe/godot/addons/
+          echo "Addon files copied:"
+          ls -la examples/tic-tac-toe/godot/addons/playgodot/
+
+      - name: Import Godot project
+        run: |
+          echo "Importing tic-tac-toe project..."
+          timeout 30 godot --headless --path examples/tic-tac-toe/godot --import --quit || true
+          echo "Import complete"
+          echo "Project structure:"
+          ls -la examples/tic-tac-toe/godot/
+          cat examples/tic-tac-toe/godot/project.godot
+
+      - name: Test Godot headless startup
+        run: |
+          echo "Testing if Godot can start and run autoload..."
+          cd examples/tic-tac-toe/godot
+          timeout 10 godot --headless --path . --quit-after 3 2>&1 || echo "Godot exited with code $?"
+          echo "Godot startup test complete"
+
       - name: Run tic-tac-toe integration tests
         run: |
           cd examples/tic-tac-toe
-          pytest tests/ -v --tb=short
-        timeout-minutes: 10
+          pytest tests/ -v -s --tb=short
+        timeout-minutes: 3
 
       - name: Test summary
         if: always()
