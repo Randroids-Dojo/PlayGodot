@@ -273,6 +273,23 @@ class NativeClient:
                 params.get("pressed", True),
                 params.get("strength", 1.0),
             ]
+        # Extended automation commands (Phase 3)
+        elif method == "screenshot":
+            return [params.get("node_path", "")]
+        elif method == "query_nodes":
+            return [params.get("pattern", "*")]
+        elif method == "count_nodes":
+            return [params.get("pattern", "*")]
+        elif method == "get_current_scene":
+            return []
+        elif method == "change_scene":
+            return [params.get("path", "")]
+        elif method == "reload_scene":
+            return []
+        elif method == "pause":
+            return [params.get("paused", True)]
+        elif method == "time_scale":
+            return [params.get("scale", 1.0)]
         else:
             # For unknown methods, just pass params as list
             return list(params.values()) if params else []
@@ -291,6 +308,15 @@ class NativeClient:
             "key": "automation:input_result",
             "touch": "automation:input_result",
             "action": "automation:input_result",
+            # Extended automation (Phase 3)
+            "screenshot": "automation:screenshot",
+            "query_nodes": "automation:query_result",
+            "count_nodes": "automation:count_result",
+            "get_current_scene": "automation:current_scene",
+            "change_scene": "automation:scene_result",
+            "reload_scene": "automation:scene_result",
+            "pause": "automation:pause_result",
+            "time_scale": "automation:time_scale_result",
         }
         return response_map.get(method, f"automation:{method}")
 
@@ -321,6 +347,32 @@ class NativeClient:
         elif method in ("mouse_button", "mouse_motion", "key", "touch", "action"):
             # Response is [success]
             return {"success": bool(data[0])} if data else {"success": False}
+        # Extended automation (Phase 3)
+        elif method == "screenshot":
+            # Response is [png_bytes] - raw PNG data as PackedByteArray
+            if data and len(data) >= 1:
+                return {"data": data[0]}  # Raw PNG bytes
+            return None
+        elif method == "query_nodes":
+            # Response is [array_of_node_paths]
+            return data[0] if data else []
+        elif method == "count_nodes":
+            # Response is [count]
+            return data[0] if data else 0
+        elif method == "get_current_scene":
+            # Response is [scene_path, scene_name]
+            if len(data) >= 2:
+                return {"path": data[0], "name": data[1]}
+            return None
+        elif method in ("change_scene", "reload_scene"):
+            # Response is [success]
+            return {"success": bool(data[0])} if data else {"success": False}
+        elif method == "pause":
+            # Response is [paused_state]
+            return {"paused": bool(data[0])} if data else {"paused": False}
+        elif method == "time_scale":
+            # Response is [current_scale]
+            return {"scale": float(data[0])} if data else {"scale": 1.0}
         else:
             return data
 
