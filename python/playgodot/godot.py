@@ -79,12 +79,11 @@ class Godot:
         if verbose:
             cmd.append("--verbose")
 
-        # Start process - always capture output for diagnostics
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
+        print(f"[PlayGodot] Starting Godot: {' '.join(cmd)}")
+
+        # Start process - let stdout/stderr flow to terminal for visibility in CI
+        # Piping stdout can cause Godot to block if buffer fills up
+        process = subprocess.Popen(cmd)
 
         client = Client(port=port)
 
@@ -93,40 +92,36 @@ class Godot:
             connected = False
             last_error = None
             start_time = asyncio.get_event_loop().time()
+            attempt = 0
 
             while asyncio.get_event_loop().time() - start_time < timeout:
                 # Check if process crashed
                 if process.poll() is not None:
-                    stdout_output = ""
-                    if process.stdout:
-                        stdout_output = process.stdout.read().decode("utf-8", errors="replace")
                     raise ConnectionError(
                         f"Godot process exited with code {process.returncode}.\n"
                         f"Command: {' '.join(cmd)}\n"
-                        f"Output:\n{stdout_output}"
+                        f"Check the output above for errors."
                     )
 
                 try:
+                    attempt += 1
+                    if attempt % 10 == 1:
+                        print(f"[PlayGodot] Connection attempt {attempt}...")
                     await client.connect(timeout=2.0)
                     connected = True
+                    print(f"[PlayGodot] Connected after {attempt} attempts")
                     break
                 except Exception as e:
                     last_error = e
                     await asyncio.sleep(0.5)
 
             if not connected:
-                stdout_output = ""
-                if process.stdout:
-                    # Non-blocking read of available output
-                    import select
-                    if select.select([process.stdout], [], [], 0)[0]:
-                        stdout_output = process.stdout.read(4096).decode("utf-8", errors="replace")
                 raise ConnectionError(
-                    f"Failed to connect to Godot after {timeout}s.\n"
+                    f"Failed to connect to Godot after {timeout}s ({attempt} attempts).\n"
                     f"Command: {' '.join(cmd)}\n"
                     f"Last error: {last_error}\n"
                     f"Process running: {process.poll() is None}\n"
-                    f"Output snippet:\n{stdout_output[:2000] if stdout_output else '(no output captured)'}"
+                    f"Check the Godot output above for errors."
                 )
 
             instance = cls(client, process)
