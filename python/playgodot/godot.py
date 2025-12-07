@@ -13,7 +13,7 @@ from playgodot.client import Client
 from playgodot.node import Node
 from playgodot.input import InputSimulator
 from playgodot.screenshot import ScreenshotManager
-from playgodot.exceptions import NodeNotFoundError, TimeoutError
+from playgodot.exceptions import ConnectionError, NodeNotFoundError, TimeoutError
 
 T = TypeVar("T")
 
@@ -79,19 +79,50 @@ class Godot:
         if verbose:
             cmd.append("--verbose")
 
-        # Start process
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE if not verbose else None,
-            stderr=subprocess.PIPE if not verbose else None,
-        )
+        print(f"[PlayGodot] Starting Godot: {' '.join(cmd)}")
+
+        # Start process - let stdout/stderr flow to terminal for visibility in CI
+        # Piping stdout can cause Godot to block if buffer fills up
+        process = subprocess.Popen(cmd)
 
         client = Client(port=port)
 
         try:
-            # Wait for connection
-            await asyncio.sleep(1.0)  # Give Godot time to start
-            await client.connect(timeout=timeout)
+            # Wait for Godot to start and retry connection
+            connected = False
+            last_error = None
+            start_time = asyncio.get_event_loop().time()
+            attempt = 0
+
+            while asyncio.get_event_loop().time() - start_time < timeout:
+                # Check if process crashed
+                if process.poll() is not None:
+                    raise ConnectionError(
+                        f"Godot process exited with code {process.returncode}.\n"
+                        f"Command: {' '.join(cmd)}\n"
+                        f"Check the output above for errors."
+                    )
+
+                try:
+                    attempt += 1
+                    if attempt % 10 == 1:
+                        print(f"[PlayGodot] Connection attempt {attempt}...")
+                    await client.connect(timeout=2.0)
+                    connected = True
+                    print(f"[PlayGodot] Connected after {attempt} attempts")
+                    break
+                except Exception as e:
+                    last_error = e
+                    await asyncio.sleep(0.5)
+
+            if not connected:
+                raise ConnectionError(
+                    f"Failed to connect to Godot after {timeout}s ({attempt} attempts).\n"
+                    f"Command: {' '.join(cmd)}\n"
+                    f"Last error: {last_error}\n"
+                    f"Process running: {process.poll() is None}\n"
+                    f"Check the Godot output above for errors."
+                )
 
             instance = cls(client, process)
             yield instance

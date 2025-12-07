@@ -64,7 +64,7 @@ func execute(method: String, params: Dictionary) -> Dictionary:
 		"type_text":
 			return await _input_simulator.type_text(params)
 		"press_action":
-			return _input_simulator.press_action(params)
+			return await _input_simulator.press_action(params)
 		"hold_action":
 			return await _input_simulator.hold_action(params)
 		"release_action":
@@ -78,7 +78,7 @@ func execute(method: String, params: Dictionary) -> Dictionary:
 
 		# Screenshot operations
 		"screenshot":
-			return _screenshot.capture(params)
+			return await _screenshot.capture(params)
 
 		# Waiting operations
 		"wait_signal":
@@ -280,16 +280,9 @@ func _wait_signal(params: Dictionary) -> Dictionary:
 	if not source.has_signal(signal_name):
 		return {"error": {"code": -32000, "message": "Signal not found: " + signal_name}}
 
-	var timeout = timeout_ms / 1000.0
-	var timer = get_tree().create_timer(timeout)
-
-	var result = await Promise.race([
-		Promise.from_signal(source, signal_name),
-		Promise.from_signal(timer, "timeout")
-	])
-
-	if result == null:
-		return {"error": {"code": -32001, "message": "Signal wait timed out"}}
+	# Simple implementation: just await the signal
+	# TODO: Implement proper timeout handling
+	var result = await source.get(signal_name)
 
 	return {"result": {"signal": signal_name, "args": result if result is Array else []}}
 
@@ -369,16 +362,3 @@ func _set_time_scale(params: Dictionary) -> Dictionary:
 	var scale = params.get("scale", 1.0)
 	Engine.time_scale = scale
 	return {"result": {"time_scale": scale}}
-
-
-## Helper class for async signal handling
-class Promise:
-	static func from_signal(obj: Object, sig: String) -> Variant:
-		return await obj.get(sig)
-
-	static func race(promises: Array) -> Variant:
-		# Simplified race - just returns first to complete
-		for p in promises:
-			if p != null:
-				return p
-		return null
