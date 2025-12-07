@@ -30,24 +30,14 @@ jobs:
           repo: Randroids-Dojo/godot
           workflow: build-automation.yml
           branch: automation
-          name: godot-automation-linux
+          name: linux-editor-mono
           path: godot-bin
-        continue-on-error: true
-        id: custom-godot
-
-      # Fallback to official Godot if custom build not available
-      - name: Setup official Godot (fallback)
-        if: steps.custom-godot.outcome == 'failure'
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: 4.3.0
 
       - name: Setup custom Godot
-        if: steps.custom-godot.outcome == 'success'
         run: |
-          chmod +x godot-bin/godot.linuxbsd.editor.x86_64
-          sudo mv godot-bin/godot.linuxbsd.editor.x86_64 /usr/local/bin/godot
-          echo "Using custom Godot build"
+          chmod +x godot-bin/godot.linuxbsd.editor.x86_64.mono
+          sudo mv godot-bin/godot.linuxbsd.editor.x86_64.mono /usr/local/bin/godot
+          echo "Using custom Godot fork"
           godot --version
 
       - name: Setup Python
@@ -100,8 +90,4 @@ jobs:
         if: always()
         run: |
           echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.custom-godot.outcome }}" == "success" ]; then
-            echo "✅ Tested with **custom Godot fork**" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ Tested with **official Godot** (custom build not available)" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "Tested with **custom Godot fork** from Randroids-Dojo/godot" >> $GITHUB_STEP_SUMMARY
