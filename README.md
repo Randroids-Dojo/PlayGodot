@@ -491,6 +491,10 @@ pytest
 - **Testing** - Add tests for the framework itself
 - **Other clients** - TypeScript, Rust, Go clients
 
+## Related Projects
+
+- **[Godot-Claude-Skills](https://github.com/Randroids-Dojo/Godot-Claude-Skills)** - Claude Code skill for Godot development (GDScript, testing, deployment)
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
