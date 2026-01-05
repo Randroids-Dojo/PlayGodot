@@ -64,33 +64,37 @@ PlayGodot connects to Godot's native debugger protocol with custom automation co
 
 1. **Custom Godot build** with automation support:
    - Clone: [Randroids-Dojo/godot](https://github.com/Randroids-Dojo/godot) (automation branch)
-   - Build with scons: `scons platform=macos arch=arm64 target=editor`
+   - Build: `scons platform=<your_platform> target=editor`
 
-2. **PlayGodot Python library**:
-   - Clone: [Randroids-Dojo/PlayGodot](https://github.com/Randroids-Dojo/PlayGodot)
-
-### Python Client
-
-```bash
-# From PyPI
-pip install playgodot
-
-# From source
-git clone https://github.com/Randroids-Dojo/PlayGodot.git
-cd PlayGodot/python
-pip install -e .
-```
+2. **Python client** (Python 3.9+):
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # Windows: .venv\Scripts\activate
+   pip install playgodot
+   ```
 
 ### Godot Setup
 
 No addon required! The automation protocol is built into the custom Godot fork. Just launch your game with the `--remote-debug` flag:
 
 ```bash
-# Launch with remote debugging enabled
 godot --path /path/to/project --remote-debug tcp://127.0.0.1:6007
 ```
 
 Or use PlayGodot's `Godot.launch()` which handles this automatically.
+
+### For Contributors
+
+To develop PlayGodot itself:
+
+```bash
+git clone https://github.com/Randroids-Dojo/PlayGodot.git
+cd PlayGodot/python
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest
+```
 
 ## Quick Start
 
