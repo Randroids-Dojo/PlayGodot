@@ -16,7 +16,7 @@ Launch a Godot project and connect to it.
 - `project_path` (str | Path): Path to the Godot project directory
 - `headless` (bool): Run without window (default: True)
 - `resolution` (tuple[int, int]): Window size as (width, height)
-- `port` (int): WebSocket port (default: 9999)
+- `port` (int): Debugger port (default: 6007)
 - `timeout` (float): Connection timeout in seconds (default: 30.0)
 - `godot_path` (str): Path to Godot executable (auto-detected if not provided)
 - `verbose` (bool): Enable verbose logging (default: False)
@@ -33,14 +33,14 @@ Connect to an already-running Godot game.
 
 **Parameters:**
 - `host` (str): Host address (default: "localhost")
-- `port` (int): WebSocket port (default: 9999)
+- `port` (int): Debugger port (default: 6007)
 - `timeout` (float): Connection timeout in seconds (default: 30.0)
 
 **Returns:** `Godot` instance
 
 **Example:**
 ```python
-game = await Godot.connect("localhost", 9999)
+game = await Godot.connect("localhost", 6007)
 ```
 
 #### `disconnect()` (async)
@@ -317,15 +317,44 @@ data = await game.screenshot()  # Returns bytes
 
 #### `compare_screenshot(expected, actual=None)` (async)
 
-Compare screenshots.
+Compare current screenshot to an expected reference image.
 
-**Returns:** `float` similarity score (0-1)
+**Parameters:**
+- `expected` (str | bytes): Path to reference image file or raw PNG bytes
+- `actual` (bytes | None): Optional current screenshot bytes. If None, takes a new screenshot.
 
-#### `assert_screenshot(reference, threshold=0.99)` (async)
+**Returns:** `float` similarity score (0.0-1.0, where 1.0 is identical)
 
-Assert current screenshot matches reference.
+**Example:**
+```python
+similarity = await game.compare_screenshot("reference.png")
+if similarity < 0.99:
+    print("Screenshot differs from reference")
+```
+
+#### `assert_screenshot(reference, threshold=0.99, save_diff=None)` (async)
+
+Assert current screenshot matches a reference image within a similarity threshold.
+
+**Parameters:**
+- `reference` (str): Path to the reference image file
+- `threshold` (float): Minimum required similarity (0.0-1.0, default 0.99)
+- `save_diff` (str | None): Optional path to save difference image on failure
 
 **Raises:** `AssertionError` if similarity is below threshold
+
+**Example:**
+```python
+# Assert with default 99% threshold
+await game.assert_screenshot("expected_menu.png")
+
+# Assert with custom threshold and save diff on failure
+await game.assert_screenshot(
+    "expected_game.png",
+    threshold=0.95,
+    save_diff="diff_output.png"
+)
+```
 
 ---
 
@@ -367,6 +396,18 @@ Pause the game.
 #### `unpause()` (async)
 
 Unpause the game.
+
+#### `is_paused()` (async)
+
+Check if the game is paused.
+
+**Returns:** `bool`
+
+#### `get_time_scale()` (async)
+
+Get the current game time scale.
+
+**Returns:** `float`
 
 #### `set_time_scale(scale)` (async)
 

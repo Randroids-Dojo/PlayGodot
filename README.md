@@ -68,7 +68,7 @@ PlayGodot connects to Godot's native debugger protocol with custom automation co
 ### Python Client
 
 ```bash
-# From PyPI (coming soon)
+# From PyPI
 pip install playgodot
 
 # From source
@@ -125,13 +125,13 @@ game = await Godot.launch(
     "path/to/project",
     headless=True,           # Run without window (default: True)
     resolution=(1920, 1080), # Window size
-    port=9999,               # WebSocket port (default: 9999)
+    port=6007,               # Debugger port (default: 6007)
     timeout=30000,           # Connection timeout in ms
     verbose=True,            # Enable debug logging
 )
 
 # Connect to already-running game
-game = await Godot.connect("localhost:9999")
+game = await Godot.connect("localhost", 6007)
 ```
 
 ### Node Interaction

@@ -10,44 +10,22 @@ This guide will help you set up PlayGodot and write your first automated tests f
 
 ## Installation
 
-### 1. Install the Python Client
+### Install the Python Client
 
 ```bash
 pip install playgodot
 ```
 
-For screenshot comparison support:
+That's it! PlayGodot uses Godot's native remote debugger protocol, so **no addon or plugin installation is required** in your Godot project.
 
-```bash
-pip install playgodot[image]
-```
+## How It Works
 
-### 2. Install the Godot Addon
+PlayGodot connects to Godot using the built-in `--remote-debug` flag:
 
-Copy the `addons/playgodot/` directory to your Godot project:
-
-```
-your_game/
-├── addons/
-│   └── playgodot/
-│       ├── plugin.cfg
-│       ├── playgodot.gd
-│       ├── server.gd
-│       ├── commands.gd
-│       ├── input_simulator.gd
-│       └── screenshot.gd
-├── scenes/
-├── scripts/
-└── project.godot
-```
-
-### 3. Enable the Plugin
-
-1. Open your project in Godot
-2. Go to **Project → Project Settings → Plugins**
-3. Find "PlayGodot" and check **Enable**
-
-The automation server will start automatically when you run your game.
+1. PlayGodot starts a TCP server on port 6007
+2. PlayGodot launches your Godot project with `--remote-debug tcp://localhost:6007`
+3. Godot connects to PlayGodot and accepts automation commands
+4. Your Python code controls the game through this connection
 
 ## Writing Your First Test
 
@@ -122,7 +100,7 @@ async def test_start_button_works(game):
     await game.wait_seconds(0.5)
 
     scene = await game.get_current_scene()
-    assert "game.tscn" in scene
+    assert "game.tscn" in scene["path"]
 ```
 
 Install test dependencies:
@@ -214,14 +192,16 @@ await game.wait_seconds(2.0)
 await game.screenshot("screenshot.png")
 
 # Compare with reference
-similarity = await game.compare_screenshot("expected.png", "actual.png")
+similarity = await game.compare_screenshot("expected.png")
 assert similarity > 0.99
 
 # Assert screenshot matches
 await game.assert_screenshot("reference.png", threshold=0.99)
 ```
 
-## Headless Testing
+## Launch Options
+
+### Headless Testing
 
 By default, PlayGodot runs games in headless mode (no window). This is ideal for CI environments.
 
@@ -233,8 +213,79 @@ async with Godot.launch("path/to/game", headless=False) as game:
     ...
 ```
 
+### Custom Port
+
+If port 6007 is in use, specify a different port:
+
+```python
+async with Godot.launch("path/to/game", port=6008) as game:
+    ...
+```
+
+### Custom Godot Path
+
+If Godot isn't in your PATH:
+
+```python
+async with Godot.launch(
+    "path/to/game",
+    godot_path="/path/to/godot"
+) as game:
+    ...
+```
+
+### Resolution
+
+Set the window resolution:
+
+```python
+async with Godot.launch(
+    "path/to/game",
+    resolution=(1920, 1080)
+) as game:
+    ...
+```
+
+## Connecting to a Running Game
+
+Instead of launching a new instance, you can connect to an already-running game:
+
+```bash
+# Start your game manually with the remote debug flag
+godot --remote-debug tcp://localhost:6007 --path /path/to/project
+```
+
+Then connect from Python:
+
+```python
+game = await Godot.connect("localhost", 6007)
+# ... use the game
+await game.disconnect()
+```
+
+## Troubleshooting
+
+### "Godot did not connect within timeout"
+
+- Make sure no other process is using port 6007
+- Verify your project path is correct
+- Check that Godot is in your PATH or provide `godot_path`
+
+### "Not connected to Godot"
+
+- The connection was lost unexpectedly
+- Check if your game crashed or exited
+- Look for errors in Godot's output
+
+### Commands timing out
+
+- Increase the timeout: `await game.get_node("/root/Main", timeout=60.0)`
+- Check if the node path is correct
+- Ensure the scene has loaded fully
+
 ## Next Steps
 
 - Check out the [API Reference](api-reference.md) for all available methods
 - See [CI Integration](ci-integration.md) for setting up GitHub Actions
+- Read the [Protocol Specification](../protocol/PROTOCOL.md) for low-level details
 - Browse the [Examples](../examples/) for complete working projects
