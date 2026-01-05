@@ -1,93 +1,172 @@
 # PlayGodot Protocol Specification
 
-PlayGodot uses **JSON-RPC 2.0** over **WebSocket** for communication between external clients (Python, etc.) and the Godot game.
+PlayGodot uses **Godot's native RemoteDebugger TCP protocol** with **binary Variant serialization** for communication between external clients (Python, etc.) and the Godot game.
+
+## Overview
+
+Unlike traditional approaches that require a WebSocket addon, PlayGodot connects directly to Godot's built-in remote debugger interface. This means:
+
+- **No addon required** - Works with unmodified Godot projects
+- **Native binary protocol** - Efficient Variant serialization
+- **Full engine access** - Same interface used by Godot's editor debugger
 
 ## Connection
 
-- Default port: `9999`
-- Protocol: WebSocket
-- URL format: `ws://localhost:9999`
+- Default port: `6007`
+- Protocol: TCP
+- Connection flow: PlayGodot starts a TCP server, then launches Godot with `--remote-debug tcp://host:port`
 
-The port can be configured via:
-- Command line: `--playgodot-port 8888`
-- Environment variable: `PLAYGODOT_PORT=8888`
+### Connection Sequence
+
+```
+1. PlayGodot starts TCP server on port 6007
+2. PlayGodot launches Godot with: godot --remote-debug tcp://localhost:6007 --path /project
+3. Godot connects to PlayGodot as a client
+4. PlayGodot captures Godot's thread ID from the first received message
+5. PlayGodot sends commands using Godot's thread ID
+```
+
+The port can be configured via the `port` parameter when launching:
+
+```python
+async with Godot.launch("project/", port=6008) as game:
+    ...
+```
 
 ## Message Format
 
-### Request
+All messages use Godot's native Variant binary encoding.
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "method_name",
-  "params": {
-    "param1": "value1",
-    "param2": "value2"
-  }
-}
+### Wire Format
+
+```
+[4 bytes: size]  - Little-endian uint32, size of variant data
+[N bytes: data]  - Encoded Variant (always an Array)
 ```
 
-- `jsonrpc`: Always "2.0"
-- `id`: Unique request identifier (integer or string)
-- `method`: The RPC method to call
-- `params`: Optional method parameters (object)
+### Message Structure
 
-### Success Response
+Each message is a Variant Array with 3 elements:
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "key": "value"
-  }
-}
+```
+Array[
+    String: message_name,    # e.g., "automation:get_tree"
+    int: thread_id,          # Godot's main thread ID
+    Array: data              # Command parameters or response data
+]
 ```
 
-### Error Response
+### Example Message (Hex)
 
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": -32000,
-    "message": "Error description"
-  }
-}
+A `get_tree` command might look like:
+
+```
+04 00 00 00              # Size: 4 bytes (header only for this example)
+1C 00 00 00              # Variant header: ARRAY type (28)
+03 00 00 00              # Array length: 3 elements
+04 00 00 00              # STRING header
+14 00 00 00              # String length: 20 bytes
+61 75 74 6F 6D 61 74 69  # "automati"
+6F 6E 3A 67 65 74 5F 74  # "on:get_t"
+72 65 65 00              # "ree" + padding
+02 00 00 00              # INT header
+01 00 00 00              # Thread ID: 1
+1C 00 00 00              # ARRAY header (data array)
+00 00 00 00              # Empty array
 ```
 
-## Error Codes
+## Variant Encoding
 
-| Code | Meaning |
-|------|---------|
-| -32700 | Parse error - Invalid JSON |
-| -32600 | Invalid Request - Missing required fields |
-| -32601 | Method not found |
-| -32602 | Invalid params |
-| -32000 | Server error - Node not found |
-| -32001 | Server error - Timeout |
+PlayGodot uses Godot's native binary Variant format from `core/io/marshalls.cpp`.
 
-## Methods
+### Type IDs
+
+| ID | Type | Python Equivalent |
+|----|------|-------------------|
+| 0 | NIL | `None` |
+| 1 | BOOL | `bool` |
+| 2 | INT | `int` |
+| 3 | FLOAT | `float` |
+| 4 | STRING | `str` |
+| 5 | VECTOR2 | `dict` with x, y |
+| 20 | COLOR | `dict` with r, g, b, a |
+| 27 | DICTIONARY | `dict` |
+| 28 | ARRAY | `list` |
+| 29 | PACKED_BYTE_ARRAY | `bytes` |
+
+### Encoding Rules
+
+**Header Format:**
+```
+[4 bytes: header]
+  - Byte 0: Variant::Type enum value
+  - Bit 16: 64-bit flag (for INT and FLOAT)
+```
+
+**String Encoding:**
+```
+[4 bytes: header]       # Type 4 (STRING)
+[4 bytes: length]       # UTF-8 byte length
+[N bytes: UTF-8 data]   # String content
+[0-3 bytes: padding]    # Pad to 4-byte boundary
+```
+
+**Array Encoding:**
+```
+[4 bytes: header]       # Type 28 (ARRAY)
+[4 bytes: count]        # Number of elements
+[...]: encoded elements # Each element is a full Variant
+```
+
+**Integer Encoding:**
+```
+32-bit (if -2^31 <= value <= 2^31-1):
+  [4 bytes: header]     # Type 2 (INT)
+  [4 bytes: value]      # Signed int32
+
+64-bit (otherwise):
+  [4 bytes: header]     # Type 2 | (1 << 16) = 0x10002
+  [8 bytes: value]      # Signed int64
+```
+
+## Automation Commands
+
+Commands are sent as `automation:<command>` with a data array containing parameters.
 
 ### Node Operations
+
+#### get_tree
+
+Get the scene tree structure.
+
+**Request:** `automation:get_tree` → `[]`
+
+**Response:** `automation:tree` → `[tree_dict]`
+
+```python
+# tree_dict structure:
+{
+    "name": "root",
+    "path": "/root",
+    "class": "Window",
+    "children": [...]
+}
+```
 
 #### get_node
 
 Get information about a node.
 
-**Params:**
-- `path` (string, required): Node path (e.g., "/root/Main/Player")
+**Request:** `automation:get_node` → `[path]`
 
-**Result:**
-```json
+**Response:** `automation:node` → `[node_dict | null]`
+
+```python
+# node_dict structure:
 {
-  "path": "/root/Main/Player",
-  "name": "Player",
-  "class": "CharacterBody2D",
-  "position": {"x": 100, "y": 200},
-  "visible": true
+    "path": "/root/Main/Player",
+    "name": "Player",
+    "class": "CharacterBody2D"
 }
 ```
 
@@ -95,305 +174,94 @@ Get information about a node.
 
 Get a property value from a node.
 
-**Params:**
-- `path` (string, required): Node path
-- `property` (string, required): Property name
+**Request:** `automation:get_property` → `[path, property_name]`
 
-**Result:**
-```json
-{
-  "value": 100
-}
-```
+**Response:** `automation:property` → `[path, property_name, value]`
 
 #### set_property
 
 Set a property value on a node.
 
-**Params:**
-- `path` (string, required): Node path
-- `property` (string, required): Property name
-- `value` (any, required): New value
+**Request:** `automation:set_property` → `[path, property_name, value]`
 
-**Result:**
-```json
-{
-  "success": true
-}
-```
+**Response:** `automation:set_result` → `[success_bool]`
 
 #### call_method
 
 Call a method on a node.
 
-**Params:**
-- `path` (string, required): Node path
-- `method` (string, required): Method name
-- `args` (array, optional): Method arguments
+**Request:** `automation:call_method` → `[path, method_name, args_array]`
 
-**Result:**
-```json
-{
-  "value": "return_value"
-}
-```
-
-#### node_exists
-
-Check if a node exists.
-
-**Params:**
-- `path` (string, required): Node path
-
-**Result:**
-```json
-{
-  "exists": true
-}
-```
+**Response:** `automation:call_result` → `[path, method_name, return_value]`
 
 #### query_nodes
 
 Query nodes matching a pattern.
 
-**Params:**
-- `pattern` (string, required): Node path pattern (supports * wildcard)
+**Request:** `automation:query_nodes` → `[pattern]`
 
-**Result:**
-```json
-{
-  "nodes": [
-    {"path": "/root/Main/Enemy1", "name": "Enemy1", "class": "CharacterBody2D"},
-    {"path": "/root/Main/Enemy2", "name": "Enemy2", "class": "CharacterBody2D"}
-  ]
-}
-```
+**Response:** `automation:query_result` → `[paths_array]`
+
+Pattern supports `*` wildcard: `/root/Main/Enemies/*`
 
 #### count_nodes
 
 Count nodes matching a pattern.
 
-**Params:**
-- `pattern` (string, required): Node path pattern
+**Request:** `automation:count_nodes` → `[pattern]`
 
-**Result:**
-```json
-{
-  "count": 5
-}
-```
-
-#### get_children
-
-Get children of a node.
-
-**Params:**
-- `path` (string, required): Parent node path
-
-**Result:**
-```json
-{
-  "children": [
-    {"path": "/root/Main/Child1", "name": "Child1", "class": "Node2D"},
-    {"path": "/root/Main/Child2", "name": "Child2", "class": "Sprite2D"}
-  ]
-}
-```
+**Response:** `automation:count_result` → `[count_int]`
 
 ### Input Operations
 
-#### click
+#### mouse_button
 
-Simulate a mouse click at coordinates.
+Simulate a mouse button press/release.
 
-**Params:**
-- `x` (number, required): X coordinate
-- `y` (number, required): Y coordinate
-- `button` (string, optional): "left" (default), "right", or "middle"
+**Request:** `automation:mouse_button` → `[x, y, button_index, pressed, double_click]`
 
-**Result:**
-```json
-{
-  "clicked": true,
-  "position": {"x": 100, "y": 200}
-}
-```
+- `x`, `y`: Screen coordinates (float)
+- `button_index`: 1=left, 2=right, 3=middle
+- `pressed`: true for press, false for release
+- `double_click`: true for double-click event
 
-#### click_node
+**Response:** `automation:input_result` → `[success_bool]`
 
-Simulate a mouse click on a node.
+#### mouse_motion
 
-**Params:**
-- `path` (string, required): Node path
-- `button` (string, optional): Mouse button
+Simulate mouse movement.
 
-**Result:**
-```json
-{
-  "clicked": true,
-  "position": {"x": 150, "y": 250}
-}
-```
+**Request:** `automation:mouse_motion` → `[x, y, rel_x, rel_y]`
 
-#### double_click
+**Response:** `automation:input_result` → `[success_bool]`
 
-Simulate a double-click at coordinates.
+#### key
 
-**Params:**
-- `x` (number, required): X coordinate
-- `y` (number, required): Y coordinate
+Simulate a key press/release.
 
-**Result:**
-```json
-{
-  "double_clicked": true
-}
-```
+**Request:** `automation:key` → `[keycode, pressed, physical]`
 
-#### move_mouse
+- `keycode`: Godot Key enum value
+- `pressed`: true for press, false for release
+- `physical`: true to use physical key location
 
-Move the mouse to coordinates.
+**Response:** `automation:input_result` → `[success_bool]`
 
-**Params:**
-- `x` (number, required): X coordinate
-- `y` (number, required): Y coordinate
+#### action
 
-**Result:**
-```json
-{
-  "position": {"x": 100, "y": 200}
-}
-```
+Simulate an input action.
 
-#### drag
+**Request:** `automation:action` → `[action_name, pressed, strength]`
 
-Simulate a drag operation.
+**Response:** `automation:input_result` → `[success_bool]`
 
-**Params:**
-- `from_x` (number, required): Starting X
-- `from_y` (number, required): Starting Y
-- `to_x` (number, required): Ending X
-- `to_y` (number, required): Ending Y
-- `duration` (number, optional): Duration in seconds (default: 0.5)
+#### touch
 
-**Result:**
-```json
-{
-  "dragged": true
-}
-```
+Simulate a touch event.
 
-#### press_key
+**Request:** `automation:touch` → `[index, x, y, pressed]`
 
-Simulate a key press.
-
-**Params:**
-- `key` (string, required): Key name (e.g., "space", "enter", "a")
-- `modifiers` (array, optional): Modifier keys (e.g., ["ctrl", "shift"])
-
-**Result:**
-```json
-{
-  "pressed": "space"
-}
-```
-
-#### type_text
-
-Type a string of text.
-
-**Params:**
-- `text` (string, required): Text to type
-- `delay` (number, optional): Delay between keystrokes in seconds (default: 0.05)
-
-**Result:**
-```json
-{
-  "typed": "Hello, World!"
-}
-```
-
-#### press_action
-
-Press an input action (as defined in Input Map).
-
-**Params:**
-- `action` (string, required): Action name
-
-**Result:**
-```json
-{
-  "pressed": "jump"
-}
-```
-
-#### hold_action
-
-Hold an input action for a duration.
-
-**Params:**
-- `action` (string, required): Action name
-- `duration` (number, required): Duration in seconds
-
-**Result:**
-```json
-{
-  "held": "run",
-  "duration": 2.0
-}
-```
-
-#### tap
-
-Simulate a touch tap.
-
-**Params:**
-- `x` (number, required): X coordinate
-- `y` (number, required): Y coordinate
-
-**Result:**
-```json
-{
-  "tapped": true,
-  "position": {"x": 100, "y": 200}
-}
-```
-
-#### swipe
-
-Simulate a swipe gesture.
-
-**Params:**
-- `from_x` (number, required): Starting X
-- `from_y` (number, required): Starting Y
-- `to_x` (number, required): Ending X
-- `to_y` (number, required): Ending Y
-- `duration` (number, optional): Duration in seconds (default: 0.3)
-
-**Result:**
-```json
-{
-  "swiped": true
-}
-```
-
-#### pinch
-
-Simulate a pinch gesture.
-
-**Params:**
-- `center_x` (number, required): Center X coordinate
-- `center_y` (number, required): Center Y coordinate
-- `scale` (number, required): Scale factor (< 1 for pinch in, > 1 for pinch out)
-- `duration` (number, optional): Duration in seconds (default: 0.3)
-
-**Result:**
-```json
-{
-  "pinched": true,
-  "scale": 0.5
-}
-```
+**Response:** `automation:input_result` → `[success_bool]`
 
 ### Screenshot Operations
 
@@ -401,18 +269,55 @@ Simulate a pinch gesture.
 
 Capture a screenshot.
 
-**Params:**
-- `node` (string, optional): Node path to capture (captures full viewport if not specified)
+**Request:** `automation:screenshot` → `[node_path_or_empty]`
 
-**Result:**
-```json
-{
-  "data": "base64_encoded_png_data",
-  "width": 1920,
-  "height": 1080,
-  "format": "png"
-}
-```
+**Response:** `automation:screenshot` → `[png_bytes]`
+
+Returns raw PNG data as PackedByteArray.
+
+### Scene Operations
+
+#### get_current_scene
+
+Get the current scene.
+
+**Request:** `automation:get_current_scene` → `[]`
+
+**Response:** `automation:current_scene` → `[scene_path, scene_name]`
+
+#### change_scene
+
+Change to a different scene.
+
+**Request:** `automation:change_scene` → `[scene_path]`
+
+**Response:** `automation:scene_result` → `[success_bool]`
+
+#### reload_scene
+
+Reload the current scene.
+
+**Request:** `automation:reload_scene` → `[]`
+
+**Response:** `automation:scene_result` → `[success_bool]`
+
+### Game State Operations
+
+#### pause
+
+Pause or unpause the game.
+
+**Request:** `automation:pause` → `[paused_bool]`
+
+**Response:** `automation:pause_result` → `[current_paused_state]`
+
+#### time_scale
+
+Set the game time scale.
+
+**Request:** `automation:time_scale` → `[scale_float]`
+
+**Response:** `automation:time_scale_result` → `[current_scale]`
 
 ### Waiting Operations
 
@@ -420,195 +325,59 @@ Capture a screenshot.
 
 Wait for a signal to be emitted.
 
-**Params:**
-- `signal` (string, required): Signal name
-- `source` (string, optional): Source node path
-- `timeout` (number, optional): Timeout in milliseconds (default: 30000)
+**Request:** `automation:wait_signal` → `[signal_name, source_path, timeout_ms]`
 
-**Result:**
-```json
-{
-  "signal": "game_over",
-  "args": []
-}
-```
+- `signal_name`: Name of the signal to wait for
+- `source_path`: Node path filter (empty string for any source)
+- `timeout_ms`: Timeout in milliseconds
 
-#### wait_frames
-
-Wait for a number of frames.
-
-**Params:**
-- `count` (integer, required): Number of frames
-
-**Result:**
-```json
-{
-  "frames": 60
-}
-```
-
-#### wait_seconds
-
-Wait for a number of seconds (game time).
-
-**Params:**
-- `seconds` (number, required): Seconds to wait
-
-**Result:**
-```json
-{
-  "seconds": 2.0
-}
-```
-
-### Scene Operations
-
-#### get_current_scene
-
-Get the current scene path.
-
-**Params:** None
-
-**Result:**
-```json
-{
-  "path": "res://scenes/main.tscn"
-}
-```
-
-#### change_scene
-
-Change to a different scene.
-
-**Params:**
-- `path` (string, required): Scene resource path
-
-**Result:**
-```json
-{
-  "success": true
-}
-```
-
-#### reload_scene
-
-Reload the current scene.
-
-**Params:** None
-
-**Result:**
-```json
-{
-  "success": true
-}
-```
-
-#### get_tree
-
-Get the scene tree structure.
-
-**Params:** None
-
-**Result:**
-```json
-{
-  "path": "/root",
-  "name": "root",
-  "class": "Window",
-  "children": [
-    {
-      "path": "/root/Main",
-      "name": "Main",
-      "class": "Node2D",
-      "children": []
-    }
-  ]
-}
-```
-
-### Game State Operations
-
-#### pause
-
-Pause the game.
-
-**Params:** None
-
-**Result:**
-```json
-{
-  "paused": true
-}
-```
-
-#### unpause
-
-Unpause the game.
-
-**Params:** None
-
-**Result:**
-```json
-{
-  "paused": false
-}
-```
-
-#### set_time_scale
-
-Set the game time scale.
-
-**Params:**
-- `scale` (number, required): Time scale (1.0 = normal)
-
-**Result:**
-```json
-{
-  "time_scale": 0.5
-}
-```
-
-## Type Serialization
-
-### Vector2
-```json
-{"x": 100.0, "y": 200.0}
-```
-
-### Vector3
-```json
-{"x": 1.0, "y": 2.0, "z": 3.0}
-```
-
-### Color
-```json
-{"r": 1.0, "g": 0.5, "b": 0.0, "a": 1.0}
-```
-
-### Node References
-Serialized as their path string:
-```json
-"/root/Main/Player"
-```
+**Response:** `automation:wait_signal_result` → `[signal_name, args_array]`
 
 ## Example Session
 
 ```
-Client -> Server:
-{"jsonrpc":"2.0","id":1,"method":"get_node","params":{"path":"/root/Main/Player"}}
+# Python client starts TCP server on port 6007
+# Python launches: godot --remote-debug tcp://localhost:6007 --path ./game
 
-Server -> Client:
-{"jsonrpc":"2.0","id":1,"result":{"path":"/root/Main/Player","name":"Player","class":"CharacterBody2D","position":{"x":100,"y":200},"visible":true}}
+# Godot connects and sends initial debug messages
+# Python captures thread_id from first message
 
-Client -> Server:
-{"jsonrpc":"2.0","id":2,"method":"click_node","params":{"path":"/root/Main/UI/StartButton"}}
+# Python sends get_tree command:
+→ ["automation:get_tree", 1, []]
 
-Server -> Client:
-{"jsonrpc":"2.0","id":2,"result":{"clicked":true,"position":{"x":960,"y":540}}}
+# Godot responds with scene tree:
+← ["automation:tree", 1, [{"name": "root", "path": "/root", "children": [...]}]]
 
-Client -> Server:
-{"jsonrpc":"2.0","id":3,"method":"screenshot","params":{}}
+# Python sends click command:
+→ ["automation:mouse_button", 1, [960.0, 540.0, 1, true, false]]
 
-Server -> Client:
-{"jsonrpc":"2.0","id":3,"result":{"data":"iVBORw0KGgo...","width":1920,"height":1080,"format":"png"}}
+# Godot responds:
+← ["automation:input_result", 1, [true]]
+
+# Python sends screenshot command:
+→ ["automation:screenshot", 1, [""]]
+
+# Godot responds with PNG data:
+← ["automation:screenshot", 1, [<bytes: PNG data>]]
 ```
+
+## Python Client Implementation
+
+The `NativeClient` class in `playgodot/native_client.py` implements this protocol:
+
+- `_params_to_data()`: Converts high-level API params to data arrays
+- `_get_expected_response()`: Maps request commands to expected response names
+- `_data_to_result()`: Converts response data arrays to Python dicts
+- `_receive_loop()`: Background task that reads and dispatches responses
+
+The `variant.py` module provides `encode_message()` and `decode_message()` for binary serialization.
+
+## Comparison with WebSocket Approach
+
+| Feature | Native Protocol | WebSocket (Addon) |
+|---------|----------------|-------------------|
+| Addon Required | No | Yes |
+| Wire Format | Binary Variant | JSON-RPC |
+| Port | 6007 (debugger) | 9999 (custom) |
+| Setup | `--remote-debug` flag | Enable plugin |
+| Efficiency | Higher | Lower |

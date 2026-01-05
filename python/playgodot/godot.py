@@ -466,6 +466,36 @@ class Godot:
 
             await asyncio.sleep(interval)
 
+    async def wait_for_signal(
+        self,
+        signal_name: str,
+        source: str | None = None,
+        timeout: float = 30.0,
+    ) -> dict[str, Any]:
+        """Wait for a Godot signal to be emitted.
+
+        Args:
+            signal_name: The name of the signal to wait for.
+            source: Optional node path to filter signal source.
+            timeout: Timeout in seconds (default 30.0).
+
+        Returns:
+            Dict with 'signal' name and 'args' list of signal arguments.
+
+        Raises:
+            TimeoutError: If the signal is not emitted within the timeout.
+        """
+        result = await self._client.send(
+            "wait_signal",
+            {
+                "signal": signal_name,
+                "source": source or "",
+                "timeout": int(timeout * 1000),  # Convert to milliseconds
+            },
+            timeout=timeout + 5.0,  # Add buffer for network overhead
+        )
+        return result
+
     # Screenshots
 
     async def screenshot(
@@ -490,6 +520,152 @@ class Godot:
             with open(path, "wb") as f:
                 f.write(png_data)
         return png_data
+
+    async def compare_screenshot(
+        self,
+        expected: str | bytes,
+        actual: bytes | None = None,
+    ) -> float:
+        """Compare current screenshot to expected image.
+
+        Uses mean squared error to calculate similarity.
+
+        Args:
+            expected: Path to expected image file or raw image bytes.
+            actual: Optional actual screenshot bytes. If None, takes a new screenshot.
+
+        Returns:
+            Similarity score from 0.0 (completely different) to 1.0 (identical).
+
+        Raises:
+            FileNotFoundError: If expected image file doesn't exist.
+            ValueError: If images have different dimensions.
+        """
+        from PIL import Image
+        import io
+
+        # Get actual screenshot
+        if actual is None:
+            actual = await self.screenshot()
+
+        # Load expected image
+        if isinstance(expected, str):
+            expected_path = Path(expected)
+            if not expected_path.exists():
+                raise FileNotFoundError(f"Expected image not found: {expected}")
+            expected_img = Image.open(expected_path)
+        else:
+            expected_img = Image.open(io.BytesIO(expected))
+
+        # Load actual image
+        actual_img = Image.open(io.BytesIO(actual))
+
+        # Validate dimensions match
+        if expected_img.size != actual_img.size:
+            raise ValueError(
+                f"Image dimensions don't match: expected {expected_img.size}, "
+                f"actual {actual_img.size}"
+            )
+
+        # Convert to same mode (RGBA for consistency)
+        expected_img = expected_img.convert("RGBA")
+        actual_img = actual_img.convert("RGBA")
+
+        # Calculate similarity
+        return self._calculate_image_similarity(expected_img, actual_img)
+
+    def _calculate_image_similarity(
+        self,
+        img1: Any,  # PIL.Image.Image
+        img2: Any,  # PIL.Image.Image
+    ) -> float:
+        """Calculate similarity between two PIL Images using MSE.
+
+        Args:
+            img1: First image.
+            img2: Second image.
+
+        Returns:
+            Similarity score from 0.0 to 1.0.
+        """
+        import numpy as np
+
+        # Convert to numpy arrays
+        arr1 = np.array(img1, dtype=np.float64)
+        arr2 = np.array(img2, dtype=np.float64)
+
+        # Calculate mean squared error
+        mse = np.mean((arr1 - arr2) ** 2)
+
+        # Convert MSE to similarity score (0-1)
+        # Max possible MSE is 255^2 = 65025 per channel
+        max_mse = 255.0 ** 2
+        similarity = 1.0 - (mse / max_mse)
+
+        return max(0.0, min(1.0, similarity))
+
+    async def assert_screenshot(
+        self,
+        reference: str,
+        threshold: float = 0.99,
+        save_diff: str | None = None,
+    ) -> None:
+        """Assert current screenshot matches reference within threshold.
+
+        Args:
+            reference: Path to reference image file.
+            threshold: Minimum similarity threshold (default 0.99 = 99% similar).
+            save_diff: Optional path to save diff image on failure.
+
+        Raises:
+            AssertionError: If similarity is below threshold.
+            FileNotFoundError: If reference image doesn't exist.
+        """
+        actual = await self.screenshot()
+        similarity = await self.compare_screenshot(reference, actual)
+
+        if similarity < threshold:
+            # Save the actual screenshot for debugging
+            actual_path = Path(reference).with_suffix(".actual.png")
+            with open(actual_path, "wb") as f:
+                f.write(actual)
+
+            # Optionally generate and save diff image
+            if save_diff:
+                await self._save_diff_image(reference, actual, save_diff)
+
+            raise AssertionError(
+                f"Screenshot assertion failed: similarity {similarity:.4f} "
+                f"is below threshold {threshold:.4f}. "
+                f"Actual screenshot saved to: {actual_path}"
+            )
+
+    async def _save_diff_image(
+        self,
+        reference_path: str,
+        actual_bytes: bytes,
+        diff_path: str,
+    ) -> None:
+        """Generate and save a diff image highlighting differences.
+
+        Args:
+            reference_path: Path to reference image.
+            actual_bytes: Actual screenshot bytes.
+            diff_path: Path to save diff image.
+        """
+        from PIL import Image, ImageChops
+        import io
+
+        reference_img = Image.open(reference_path).convert("RGBA")
+        actual_img = Image.open(io.BytesIO(actual_bytes)).convert("RGBA")
+
+        # Create diff image
+        diff = ImageChops.difference(reference_img, actual_img)
+
+        # Amplify differences for visibility
+        diff = diff.point(lambda x: min(255, x * 3))
+
+        diff.save(diff_path)
 
     # Scene management
 

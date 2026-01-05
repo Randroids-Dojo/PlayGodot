@@ -1,5 +1,7 @@
 """PlayGodot exceptions."""
 
+from __future__ import annotations
+
 
 class PlayGodotError(Exception):
     """Base exception for PlayGodot errors."""

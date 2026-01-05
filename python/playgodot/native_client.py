@@ -290,6 +290,12 @@ class NativeClient:
             return [params.get("paused", True)]
         elif method == "time_scale":
             return [params.get("scale", 1.0)]
+        elif method == "wait_signal":
+            return [
+                params.get("signal", ""),
+                params.get("source", ""),
+                params.get("timeout", 30000),
+            ]
         else:
             # For unknown methods, just pass params as list
             return list(params.values()) if params else []
@@ -317,6 +323,7 @@ class NativeClient:
             "reload_scene": "automation:scene_result",
             "pause": "automation:pause_result",
             "time_scale": "automation:time_scale_result",
+            "wait_signal": "automation:wait_signal_result",
         }
         return response_map.get(method, f"automation:{method}")
 
@@ -373,6 +380,11 @@ class NativeClient:
         elif method == "time_scale":
             # Response is [current_scale]
             return {"scale": float(data[0])} if data else {"scale": 1.0}
+        elif method == "wait_signal":
+            # Response is [signal_name, args_array]
+            if len(data) >= 2:
+                return {"signal": data[0], "args": data[1]}
+            return {"signal": "", "args": []}
         else:
             return data
 

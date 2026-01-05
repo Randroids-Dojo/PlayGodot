@@ -280,11 +280,33 @@ func _wait_signal(params: Dictionary) -> Dictionary:
 	if not source.has_signal(signal_name):
 		return {"error": {"code": -32000, "message": "Signal not found: " + signal_name}}
 
-	# Simple implementation: just await the signal
-	# TODO: Implement proper timeout handling
-	var result = await source.get(signal_name)
+	# Use timer-based timeout with signal race
+	var timeout_seconds = timeout_ms / 1000.0
+	var timer = get_tree().create_timer(timeout_seconds)
+	var signal_received = false
+	var signal_result = null
 
-	return {"result": {"signal": signal_name, "args": result if result is Array else []}}
+	# Connect to the signal with a one-shot callable
+	var on_signal = func(args = null):
+		signal_received = true
+		signal_result = args
+
+	if source.get_signal_connection_list(signal_name).is_empty():
+		source.connect(signal_name, on_signal, CONNECT_ONE_SHOT)
+	else:
+		source.connect(signal_name, on_signal, CONNECT_ONE_SHOT)
+
+	# Poll until signal received or timeout
+	while not signal_received and timer.time_left > 0:
+		await get_tree().process_frame
+
+	# Disconnect if we timed out (signal not received)
+	if not signal_received:
+		if source.is_connected(signal_name, on_signal):
+			source.disconnect(signal_name, on_signal)
+		return {"error": {"code": -32001, "message": "Timeout waiting for signal: " + signal_name}}
+
+	return {"result": {"signal": signal_name, "args": signal_result if signal_result is Array else [signal_result] if signal_result != null else []}}
 
 
 func _wait_frames(params: Dictionary) -> Dictionary:
