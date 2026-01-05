@@ -1,5 +1,9 @@
 # PlayGodot
 
+[![PyPI version](https://badge.fury.io/py/playgodot.svg)](https://pypi.org/project/playgodot/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **Game automation framework for Godot Engine - like [Playwright](https://playwright.dev/), but for games.**
 
 Control Godot games from Python. Automate gameplay, write E2E tests, capture screenshots, simulate input - all from external scripts running outside the engine.
@@ -440,11 +444,18 @@ PlayGodot/
 - [x] Scene management (tree queries, change/reload)
 - [x] Game control (pause, time scale)
 
+### v0.5.0 - Beta Release ✅
+- [x] Published to PyPI (`pip install playgodot`)
+- [x] Comprehensive test suite (210+ tests)
+- [x] Complete documentation (API reference, protocol spec)
+- [x] CI/CD with GitHub Actions
+- [x] Screenshot comparison with MSE-based similarity
+
 ### v1.0.0 - Production Ready
-- [ ] Comprehensive documentation
-- [ ] PyPI publication
-- [ ] CI/CD examples
-- [ ] Visual regression testing
+- [ ] Stable API (no breaking changes)
+- [ ] Visual regression testing improvements
+- [ ] Performance optimizations
+- [ ] Additional client libraries (TypeScript, Rust)
 
 ## Contributing
 
