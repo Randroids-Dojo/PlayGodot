@@ -7,7 +7,7 @@ supported by Godot's built-in automation protocol.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from playgodot.native_client import NativeClient
