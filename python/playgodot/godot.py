@@ -7,15 +7,15 @@ from __future__ import annotations
 
 import asyncio
 import subprocess
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Callable, TypeVar
-from contextlib import asynccontextmanager
-from collections.abc import AsyncGenerator
 
+from playgodot.exceptions import NodeNotFoundError, TimeoutError
 from playgodot.native_client import NativeClient
-from playgodot.node import Node
 from playgodot.native_input import NativeInputSimulator
-from playgodot.exceptions import ConnectionError, NodeNotFoundError, TimeoutError
+from playgodot.node import Node
 
 T = TypeVar("T")
 
@@ -101,9 +101,9 @@ class Godot:
             process = subprocess.Popen(cmd)
 
             # Wait for Godot to connect
-            print(f"[PlayGodot] Waiting for Godot to connect...")
+            print("[PlayGodot] Waiting for Godot to connect...")
             await client.connect(timeout=timeout)
-            print(f"[PlayGodot] Godot connected")
+            print("[PlayGodot] Godot connected")
 
             instance = cls(client, process)
             yield instance
@@ -541,8 +541,9 @@ class Godot:
             FileNotFoundError: If expected image file doesn't exist.
             ValueError: If images have different dimensions.
         """
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         # Get actual screenshot
         if actual is None:
@@ -653,8 +654,9 @@ class Godot:
             actual_bytes: Actual screenshot bytes.
             diff_path: Path to save diff image.
         """
-        from PIL import Image, ImageChops
         import io
+
+        from PIL import Image, ImageChops
 
         reference_img = Image.open(reference_path).convert("RGBA")
         actual_img = Image.open(io.BytesIO(actual_bytes)).convert("RGBA")

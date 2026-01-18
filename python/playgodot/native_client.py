@@ -16,8 +16,8 @@ import asyncio
 import struct
 from typing import Any
 
-from playgodot.variant import encode_message, decode_message, decode_variant
-from playgodot.exceptions import ConnectionError, CommandError, TimeoutError
+from playgodot.exceptions import ConnectionError, TimeoutError
+from playgodot.variant import decode_message, encode_message
 
 
 class NativeClient:
