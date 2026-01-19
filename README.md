@@ -493,7 +493,7 @@ pytest
 
 ## Related Projects
 
-- **[Godot-Claude-Skills](https://github.com/Randroids-Dojo/Godot-Claude-Skills)** - Claude Code skill for Godot development (GDScript, testing, deployment)
+- **[Godot Skill for Claude Code and Codex](https://github.com/Randroids-Dojo/skills/tree/main/plugins/godot)** - Helps coding agents with Godot development (GDScript, testing, deployment)
 
 ## License
 
