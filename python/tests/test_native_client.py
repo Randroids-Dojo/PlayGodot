@@ -199,6 +199,12 @@ class TestGetExpectedResponse:
     def test_expected_response_wait_signal(self) -> None:
         assert self.client._get_expected_response("wait_signal") == "automation:wait_signal_result"
 
+    def test_expected_response_change_scene(self) -> None:
+        assert self.client._get_expected_response("change_scene") == "automation:scene_changed"
+
+    def test_expected_response_reload_scene(self) -> None:
+        assert self.client._get_expected_response("reload_scene") == "automation:scene_reloaded"
+
     def test_expected_response_unknown(self) -> None:
         assert self.client._get_expected_response("custom") == "automation:custom"
 
