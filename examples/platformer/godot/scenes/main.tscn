@@ -1,0 +1,150 @@
+[gd_scene load_steps=5 format=3 uid="uid://main123"]
+
+[ext_resource type="Script" path="res://scripts/game.gd" id="1_game"]
+[ext_resource type="PackedScene" uid="uid://player123" path="res://scenes/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" uid="uid://coin123" path="res://scenes/coin.tscn" id="3_coin"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_ground"]
+size = Vector2(800, 40)
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_game")
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector2(100, 500)
+
+[node name="Platforms" type="Node2D" parent="."]
+
+[node name="Ground" type="StaticBody2D" parent="Platforms"]
+position = Vector2(400, 580)
+collision_layer = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Ground"]
+shape = SubResource("RectangleShape2D_ground")
+
+[node name="GroundSprite" type="ColorRect" parent="Platforms/Ground"]
+offset_left = -400.0
+offset_top = -20.0
+offset_right = 400.0
+offset_bottom = 20.0
+color = Color(0.4, 0.3, 0.2, 1)
+
+[node name="Platform1" type="StaticBody2D" parent="Platforms"]
+position = Vector2(250, 450)
+collision_layer = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform1"]
+shape = SubResource("RectangleShape2D_ground")
+scale = Vector2(0.25, 1)
+
+[node name="Sprite" type="ColorRect" parent="Platforms/Platform1"]
+offset_left = -100.0
+offset_top = -20.0
+offset_right = 100.0
+offset_bottom = 20.0
+color = Color(0.5, 0.4, 0.3, 1)
+
+[node name="Platform2" type="StaticBody2D" parent="Platforms"]
+position = Vector2(550, 350)
+collision_layer = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform2"]
+shape = SubResource("RectangleShape2D_ground")
+scale = Vector2(0.25, 1)
+
+[node name="Sprite" type="ColorRect" parent="Platforms/Platform2"]
+offset_left = -100.0
+offset_top = -20.0
+offset_right = 100.0
+offset_bottom = 20.0
+color = Color(0.5, 0.4, 0.3, 1)
+
+[node name="Platform3" type="StaticBody2D" parent="Platforms"]
+position = Vector2(300, 250)
+collision_layer = 1
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Platforms/Platform3"]
+shape = SubResource("RectangleShape2D_ground")
+scale = Vector2(0.2, 1)
+
+[node name="Sprite" type="ColorRect" parent="Platforms/Platform3"]
+offset_left = -80.0
+offset_top = -20.0
+offset_right = 80.0
+offset_bottom = 20.0
+color = Color(0.5, 0.4, 0.3, 1)
+
+[node name="Coins" type="Node2D" parent="."]
+
+[node name="Coin1" parent="Coins" instance=ExtResource("3_coin")]
+position = Vector2(250, 410)
+
+[node name="Coin2" parent="Coins" instance=ExtResource("3_coin")]
+position = Vector2(550, 310)
+
+[node name="Coin3" parent="Coins" instance=ExtResource("3_coin")]
+position = Vector2(300, 210)
+
+[node name="Coin4" parent="Coins" instance=ExtResource("3_coin")]
+position = Vector2(700, 520)
+
+[node name="Coin5" parent="Coins" instance=ExtResource("3_coin")]
+position = Vector2(400, 520)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="ScoreLabel" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 200.0
+offset_bottom = 50.0
+text = "Score: 0"
+
+[node name="StatusLabel" type="Label" parent="HUD"]
+offset_left = 20.0
+offset_top = 50.0
+offset_right = 200.0
+offset_bottom = 80.0
+text = "Coins: 0 / 5"
+
+[node name="PauseMenu" type="Control" parent="HUD"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+process_mode = 2
+
+[node name="Background" type="ColorRect" parent="HUD/PauseMenu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.5)
+
+[node name="PauseLabel" type="Label" parent="HUD/PauseMenu"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -50.0
+offset_top = -20.0
+offset_right = 50.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "PAUSED"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Background" type="ColorRect" parent="."]
+z_index = -10
+offset_right = 800.0
+offset_bottom = 600.0
+color = Color(0.53, 0.81, 0.92, 1)

@@ -4,10 +4,9 @@ This file contains instructions for AI coding agents working on this repository.
 
 ## Project Overview
 
-PlayGodot is an external automation and testing framework for Godot Engine games. It consists of:
+PlayGodot is an external automation and testing framework for Godot Engine games. It uses Godot's native RemoteDebugger protocol via a custom Godot fork for communication. It consists of:
 
 - **Python package** (`python/`): The main testing library published to PyPI
-- **GDScript addon** (`addons/play_godot/`): Godot plugin that enables remote control
 - **Protocol** (`protocol/`): JSON-RPC message definitions
 
 ## Release Process
@@ -83,10 +82,9 @@ Note: Manual uploads require a PyPI API token configured in `~/.pypirc` or passe
 ## Testing
 
 - Python tests: `cd python && pytest`
-- Integration tests require a running Godot instance with the PlayGodot addon
+- Integration tests require a running Godot instance (custom fork with RemoteDebugger support)
 
 ## Important Notes
 
 - The `license` field in `pyproject.toml` uses table format `{text = "MIT"}` for twine compatibility
 - GitHub Actions uses trusted publishing - no secrets needed for PyPI uploads
-- The addon version in `addons/play_godot/plugin.cfg` should match the Python package version

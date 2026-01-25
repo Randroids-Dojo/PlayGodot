@@ -6,7 +6,6 @@ on:
     branches: [main]
     paths:
       - 'python/**'
-      - 'addons/**'
       - 'examples/**'
   pull_request:
     branches: [main]
@@ -62,15 +61,6 @@ jobs:
           files: python/coverage.xml
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Setup tic-tac-toe addon
-        run: |
-          # Remove symlink and copy actual addon files for CI compatibility
-          rm -rf examples/tic-tac-toe/godot/addons/playgodot
-          mkdir -p examples/tic-tac-toe/godot/addons
-          cp -r addons/playgodot examples/tic-tac-toe/godot/addons/
-          echo "Addon files copied:"
-          ls -la examples/tic-tac-toe/godot/addons/playgodot/
 
       - name: Import Godot project
         run: |
