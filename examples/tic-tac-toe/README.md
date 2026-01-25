@@ -9,8 +9,7 @@ tic-tac-toe/
 ├── godot/                  # Godot 4.x project
 │   ├── project.godot       # Project configuration
 │   ├── main.tscn           # Main scene
-│   ├── main.gd             # Game logic
-│   └── addons/playgodot/   # PlayGodot addon (symlinked)
+│   └── main.gd             # Game logic
 ├── tests/                  # Python tests
 │   ├── conftest.py         # Pytest fixtures
 │   └── test_game.py        # Game tests
