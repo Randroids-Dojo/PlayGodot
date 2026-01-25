@@ -9,5 +9,17 @@
       "Bash(mypy *)",
       "Bash(git *)"
     ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/start.sh"
+          }
+        ]
+      }
+    ]
   }
 }
