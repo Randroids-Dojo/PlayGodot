@@ -19,14 +19,6 @@ config/features=PackedStringArray("4.3", "Forward Plus")
 window/size/viewport_width=600
 window/size/viewport_height=700
 
-[autoload]
-
-PlayGodotServer="*res://addons/playgodot/server.gd"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/playgodot/plugin.cfg")
-
 [rendering]
 
 renderer/rendering_method="forward_plus"
