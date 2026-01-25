@@ -291,7 +291,7 @@ Change to a different scene.
 
 **Request:** `automation:change_scene` → `[scene_path]`
 
-**Response:** `automation:scene_result` → `[success_bool]`
+**Response:** `automation:scene_changed` → `[success_bool]`
 
 #### reload_scene
 
@@ -299,7 +299,7 @@ Reload the current scene.
 
 **Request:** `automation:reload_scene` → `[]`
 
-**Response:** `automation:scene_result` → `[success_bool]`
+**Response:** `automation:scene_reloaded` → `[success_bool]`
 
 ### Game State Operations
 
