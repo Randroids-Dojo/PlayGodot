@@ -1,0 +1,38 @@
+[gd_scene load_steps=3 format=3 uid="uid://player123"]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
+size = Vector2(28, 44)
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_player")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, 2)
+shape = SubResource("RectangleShape2D_player")
+
+[node name="Sprite" type="ColorRect" parent="."]
+offset_left = -14.0
+offset_top = -20.0
+offset_right = 14.0
+offset_bottom = 24.0
+color = Color(0.2, 0.6, 1, 1)
+
+[node name="Eyes" type="ColorRect" parent="Sprite"]
+layout_mode = 0
+offset_left = 4.0
+offset_top = 4.0
+offset_right = 20.0
+offset_bottom = 12.0
+color = Color(1, 1, 1, 1)
+
+[node name="Pupil" type="ColorRect" parent="Sprite/Eyes"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 2.0
+offset_right = 14.0
+offset_bottom = 6.0
+color = Color(0, 0, 0, 1)
