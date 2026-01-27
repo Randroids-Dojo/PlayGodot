@@ -55,7 +55,7 @@ The `automation` branch at [Randroids-Dojo/godot](https://github.com/Randroids-D
 |-------|---------|--------|
 | 1 | Automation Protocol | ✅ Complete |
 | 2 | Input Injection | ✅ Complete |
-| 3 | Headless Screenshots | ⏳ Planned |
+| 3 | Screenshots & Advanced Control | ✅ Complete |
 
 ## Files Modified in Godot
 
@@ -90,12 +90,24 @@ core/debugger/
 - `automation:touch` - Touch screen input
 - `automation:action` - Trigger game actions
 
-### Phase 3: Headless Screenshots (Planned)
+### Phase 3: Screenshots & Advanced Control ✅
 
 ```
-servers/rendering/
-└── rendering_server_default.cpp  # Ensure headless capture works
+core/debugger/
+├── remote_debugger.cpp    # Screenshot and scene control methods added
+└── remote_debugger.h      # Screenshot and scene control methods declared
 ```
+
+**Commands supported:**
+- `automation:screenshot` - Capture viewport as PNG
+- `automation:query_nodes` - Find nodes by pattern
+- `automation:count_nodes` - Count matching nodes
+- `automation:get_current_scene` - Get active scene info
+- `automation:change_scene` - Load a different scene
+- `automation:reload_scene` - Reload current scene
+- `automation:pause` - Pause/unpause game
+- `automation:time_scale` - Adjust Engine.time_scale
+- `automation:wait_signal` - Wait for signal emission
 
 ## Building Locally
 
