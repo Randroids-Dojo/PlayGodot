@@ -4,11 +4,13 @@ PlayGodot uses **Godot's native RemoteDebugger TCP protocol** with **binary Vari
 
 ## Overview
 
-Unlike traditional approaches that require a WebSocket addon, PlayGodot connects directly to Godot's built-in remote debugger interface. This means:
+PlayGodot connects to a custom Godot fork's extended RemoteDebugger interface. This means:
 
-- **No addon required** - Works with unmodified Godot projects
+- **No in-game addon required** - Automation is built into the custom Godot fork
 - **Native binary protocol** - Efficient Variant serialization
 - **Full engine access** - Same interface used by Godot's editor debugger
+
+> **Note:** PlayGodot requires the custom Godot fork from [Randroids-Dojo/godot](https://github.com/Randroids-Dojo/godot) (automation branch). Standard Godot releases do not include the automation commands.
 
 ## Connection
 

@@ -287,14 +287,6 @@ await game.wait_for(
 )
 ```
 
-#### `wait_frames(count)` (async)
-
-Wait for a number of frames.
-
-#### `wait_seconds(seconds)` (async)
-
-Wait for a number of seconds (game time).
-
 ---
 
 ### Screenshots
@@ -362,9 +354,9 @@ await game.assert_screenshot(
 
 #### `get_current_scene()` (async)
 
-Get the current scene path.
+Get the current scene info.
 
-**Returns:** `str`
+**Returns:** `dict` with `path` and `name` keys
 
 #### `change_scene(scene_path)` (async)
 

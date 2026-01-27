@@ -5,7 +5,7 @@ This guide will help you set up PlayGodot and write your first automated tests f
 ## Prerequisites
 
 - **Python 3.9+** - For running the test client
-- **Godot 4.x** - The game engine
+- **Custom Godot fork** - PlayGodot requires [Randroids-Dojo/godot](https://github.com/Randroids-Dojo/godot) (automation branch) with built-in automation support
 - **pip** - Python package manager
 
 ## Installation
@@ -54,8 +54,8 @@ async def test_game():
         await game.click("/root/Main/UI/StartButton")
         print("Clicked start button!")
 
-        # Wait for something to happen
-        await game.wait_seconds(1.0)
+        # Wait a moment
+        await asyncio.sleep(1.0)
 
         # Take a screenshot
         await game.screenshot("test_screenshot.png")
@@ -77,6 +77,7 @@ For more structured testing, use pytest:
 
 ```python
 # tests/test_game.py
+import asyncio
 import pytest
 from playgodot import Godot
 
@@ -97,7 +98,7 @@ async def test_player_exists(game):
 async def test_start_button_works(game):
     """Test that the start button changes scenes."""
     await game.click("/root/Main/UI/StartButton")
-    await game.wait_seconds(0.5)
+    await asyncio.sleep(0.5)
 
     scene = await game.get_current_scene()
     assert "game.tscn" in scene["path"]
@@ -180,9 +181,9 @@ await game.wait_for_signal("game_over")
 # Wait for visibility
 await game.wait_for_visible("/root/Main/UI/Popup")
 
-# Wait for frames/time
-await game.wait_frames(60)
-await game.wait_seconds(2.0)
+# Wait using asyncio
+import asyncio
+await asyncio.sleep(2.0)
 ```
 
 ### Screenshots

@@ -204,12 +204,8 @@ await game.wait_for_signal("health_changed", source="/root/Main/Player")
 # Wait for condition (polls until true)
 await game.wait_for(
     lambda: game.get_property("/root/Main/Player", "health") < 50,
-    timeout=10000
+    timeout=10.0
 )
-
-# Wait for frames/time
-await game.wait_frames(60)      # Wait 60 frames
-await game.wait_seconds(2.0)    # Wait 2 seconds
 ```
 
 ### Screenshots & Visual Testing
@@ -321,6 +317,8 @@ pytest test_game.py -v
 
 ### GitHub Actions
 
+PlayGodot requires the custom Godot fork with automation support. See [docs/ci-integration.md](docs/ci-integration.md) for detailed CI setup instructions.
+
 ```yaml
 name: Game Tests
 
@@ -332,10 +330,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Godot
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: 4.3.0
+      - name: Download Custom Godot
+        run: |
+          # Download pre-built automation fork from releases
+          wget -q https://github.com/Randroids-Dojo/godot/releases/download/latest/godot-automation-linux.zip
+          unzip -q godot-automation-linux.zip
+          chmod +x godot
+          sudo mv godot /usr/local/bin/
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -348,6 +349,8 @@ jobs:
       - name: Run Tests
         run: pytest tests/ -v --tb=short
 ```
+
+> **Note:** You'll need to publish pre-built binaries of your Godot fork, or build it in CI. See the [godot-fork documentation](godot-fork/README.md) for build instructions.
 
 ## Native Debugger Protocol
 

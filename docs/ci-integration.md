@@ -2,6 +2,8 @@
 
 This guide covers how to set up PlayGodot for continuous integration testing.
 
+> **Important:** PlayGodot requires the custom Godot fork with automation support from [Randroids-Dojo/godot](https://github.com/Randroids-Dojo/godot). Standard Godot releases will not work.
+
 ## GitHub Actions
 
 ### Basic Setup
@@ -25,11 +27,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Godot
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: 4.3.0
-          include-templates: false
+      - name: Download Custom Godot Fork
+        run: |
+          # Option 1: Download pre-built binary from fork releases
+          wget -q https://github.com/Randroids-Dojo/godot/releases/download/latest/godot-automation-linux-x86_64.zip
+          unzip -q godot-automation-linux-x86_64.zip
+          chmod +x godot
+          sudo mv godot /usr/local/bin/
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -43,6 +47,66 @@ jobs:
       - name: Run tests
         run: |
           pytest tests/ -v --tb=short
+```
+
+### Building Godot in CI (Alternative)
+
+If pre-built binaries aren't available, you can build the fork in CI:
+
+```yaml
+jobs:
+  build-godot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Godot Fork
+        uses: actions/checkout@v4
+        with:
+          repository: Randroids-Dojo/godot
+          ref: automation
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential scons pkg-config \
+            libx11-dev libxcursor-dev libxinerama-dev libgl1-mesa-dev \
+            libglu1-mesa-dev libasound2-dev libpulse-dev libfreetype6-dev \
+            libssl-dev libudev-dev libxi-dev libxrandr-dev
+
+      - name: Build Godot
+        run: scons platform=linuxbsd target=editor -j$(nproc)
+
+      - name: Upload Godot Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-binary
+          path: bin/godot.linuxbsd.editor.x86_64
+
+  test:
+    needs: build-godot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Godot Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: godot-binary
+          path: /usr/local/bin/
+
+      - name: Make Godot Executable
+        run: chmod +x /usr/local/bin/godot.linuxbsd.editor.x86_64
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install and Test
+        run: |
+          pip install playgodot pytest pytest-asyncio
+          pytest tests/ -v
+        env:
+          GODOT_PATH: /usr/local/bin/godot.linuxbsd.editor.x86_64
 ```
 
 ### With Screenshot Testing
@@ -68,11 +132,12 @@ jobs:
         with:
           lfs: true  # If storing screenshots in Git LFS
 
-      - name: Setup Godot
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: 4.3.0
-          include-templates: false
+      - name: Download Custom Godot Fork
+        run: |
+          wget -q https://github.com/Randroids-Dojo/godot/releases/download/latest/godot-automation-linux-x86_64.zip
+          unzip -q godot-automation-linux-x86_64.zip
+          chmod +x godot
+          sudo mv godot /usr/local/bin/
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -97,7 +162,7 @@ jobs:
 
 ### Matrix Testing
 
-Test across multiple Godot versions:
+Test across multiple Python versions (Godot fork version is fixed):
 
 ```yaml
 jobs:
@@ -105,16 +170,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        godot-version: ['4.2.0', '4.3.0']
         python-version: ['3.10', '3.11', '3.12']
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Godot
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: ${{ matrix.godot-version }}
+      - name: Download Custom Godot Fork
+        run: |
+          wget -q https://github.com/Randroids-Dojo/godot/releases/download/latest/godot-automation-linux-x86_64.zip
+          unzip -q godot-automation-linux-x86_64.zip
+          chmod +x godot
+          sudo mv godot /usr/local/bin/
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -137,14 +203,11 @@ image: python:3.11
 stages:
   - test
 
-variables:
-  GODOT_VERSION: "4.3.0"
-
 before_script:
-  # Install Godot
-  - wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
-  - unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
-  - mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+  # Install Godot automation fork
+  - wget -q https://github.com/Randroids-Dojo/godot/releases/download/latest/godot-automation-linux-x86_64.zip
+  - unzip -q godot-automation-linux-x86_64.zip
+  - mv godot /usr/local/bin/godot
   - chmod +x /usr/local/bin/godot
 
   # Install Python dependencies
@@ -176,11 +239,11 @@ jobs:
       - checkout
 
       - run:
-          name: Install Godot
+          name: Install Godot Automation Fork
           command: |
-            wget -q https://github.com/godotengine/godot/releases/download/4.3.0-stable/Godot_v4.3.0-stable_linux.x86_64.zip
-            unzip -q Godot_v4.3.0-stable_linux.x86_64.zip
-            sudo mv Godot_v4.3.0-stable_linux.x86_64 /usr/local/bin/godot
+            wget -q https://github.com/Randroids-Dojo/godot/releases/download/latest/godot-automation-linux-x86_64.zip
+            unzip -q godot-automation-linux-x86_64.zip
+            sudo mv godot /usr/local/bin/godot
             sudo chmod +x /usr/local/bin/godot
 
       - run:
@@ -218,13 +281,12 @@ RUN apt-get update && apt-get install -y \
     libxkbcommon0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Godot
-ARG GODOT_VERSION=4.3.0
-RUN wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip \
-    && unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip \
-    && mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot \
+# Install Godot automation fork
+RUN wget -q https://github.com/Randroids-Dojo/godot/releases/download/latest/godot-automation-linux-x86_64.zip \
+    && unzip -q godot-automation-linux-x86_64.zip \
+    && mv godot /usr/local/bin/godot \
     && chmod +x /usr/local/bin/godot \
-    && rm Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+    && rm godot-automation-linux-x86_64.zip
 
 # Install Python packages
 RUN pip install playgodot pytest pytest-asyncio

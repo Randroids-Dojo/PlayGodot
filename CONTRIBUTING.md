@@ -7,7 +7,7 @@ Thank you for your interest in contributing to PlayGodot! This document provides
 ### Prerequisites
 
 - Python 3.9+
-- Godot 4.x
+- Custom Godot fork with automation support ([Randroids-Dojo/godot](https://github.com/Randroids-Dojo/godot), `automation` branch)
 - Git
 
 ### Setting Up the Development Environment
@@ -29,10 +29,12 @@ Thank you for your interest in contributing to PlayGodot! This document provides
    pytest
    ```
 
-4. **Set up the Godot addon:**
-   - Create a test Godot project
-   - Copy `addons/playgodot/` to your test project
-   - Enable the plugin in Project Settings
+4. **Build the Godot fork (for integration tests):**
+   ```bash
+   git clone https://github.com/Randroids-Dojo/godot.git
+   cd godot && git checkout automation
+   scons platform=linuxbsd target=editor -j$(nproc)
+   ```
 
 ## Project Structure
 
@@ -42,8 +44,8 @@ PlayGodot/
 │   ├── playgodot/         # Main package
 │   ├── tests/             # Python tests
 │   └── pyproject.toml     # Package configuration
-├── addons/playgodot/      # Godot addon
 ├── protocol/              # Protocol specification
+├── godot-fork/            # Documentation for the Godot fork
 ├── examples/              # Example projects
 ├── docs/                  # Documentation
 └── CONTRIBUTING.md        # This file
@@ -59,12 +61,12 @@ PlayGodot/
 - Write tests
 - Optimize performance
 
-### Godot Addon
+### Godot Fork (C++ Code)
 
-- Implement command handlers
+- Add new automation commands to RemoteDebugger
 - Improve input simulation accuracy
-- Add support for more node types
-- Optimize WebSocket communication
+- Optimize binary protocol handling
+- See [godot-fork/README.md](godot-fork/README.md) for details
 
 ### Documentation
 
@@ -165,29 +167,6 @@ async def get_property(self, path: str, property_name: str) -> Any:
         {"path": path, "property": property_name},
     )
     return result.get("value")
-```
-
-### GDScript
-
-- Follow official GDScript style guide
-- Use type hints where possible
-- Document public functions with `##` comments
-
-**Example:**
-```gdscript
-## Get a property value from a node.
-##
-## Returns a dictionary with the result or error.
-func _get_property(params: Dictionary) -> Dictionary:
-    var path = params.get("path", "")
-    var property = params.get("property", "")
-
-    var node = get_tree().root.get_node_or_null(path)
-    if node == null:
-        return {"error": {"code": -32000, "message": "Node not found: " + path}}
-
-    var value = node.get(property)
-    return {"result": {"value": _serialize_value(value)}}
 ```
 
 ## Testing
