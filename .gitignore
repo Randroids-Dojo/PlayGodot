@@ -61,3 +61,6 @@ Thumbs.db
 
 # Build artifacts
 *.log
+
+# UV
+uv.lock
