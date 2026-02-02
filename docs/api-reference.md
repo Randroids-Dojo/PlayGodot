@@ -20,11 +20,16 @@ Launch a Godot project and connect to it.
 - `timeout` (float): Connection timeout in seconds (default: 30.0)
 - `godot_path` (str): Path to Godot executable (auto-detected if not provided)
 - `verbose` (bool): Enable verbose logging (default: False)
+- `scene` (str): Scene to run instead of the main scene (e.g., "res://scenes/test.tscn")
 
 **Example:**
 ```python
 async with Godot.launch("my_game/", headless=True, resolution=(1920, 1080)) as game:
     await game.wait_for_node("/root/Main")
+
+# Launch a specific scene for isolated testing
+async with Godot.launch("my_game/", scene="res://scenes/experiment.tscn") as game:
+    await game.wait_for_node("/root/Experiment")
 ```
 
 #### `Godot.connect(host, port, timeout)` (async)
