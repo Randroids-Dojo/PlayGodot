@@ -49,6 +49,115 @@ class TestFindGodot:
             assert "Godot executable not found" in str(exc.value)
 
 
+class TestLaunchCommandBuilding:
+    """Tests for Godot.launch command building."""
+
+    @pytest.mark.asyncio
+    async def test_launch_includes_scene_parameter(self, tmp_path) -> None:
+        """Test that scene parameter is passed to Godot command."""
+        project_path = tmp_path / "project"
+        project_path.mkdir()
+
+        with patch("subprocess.Popen") as mock_popen, \
+             patch.object(Godot, "_find_godot", return_value="/usr/bin/godot"), \
+             patch("playgodot.godot.NativeClient") as mock_client_class:
+
+            mock_process = MagicMock()
+            mock_process.poll.return_value = None
+            mock_popen.return_value = mock_process
+
+            mock_client = AsyncMock()
+            mock_client._start_server = AsyncMock()
+            mock_client.connect = AsyncMock()
+            mock_client.disconnect = AsyncMock()
+            mock_client_class.return_value = mock_client
+
+            async with Godot.launch(
+                str(project_path),
+                scene="res://scenes/test.tscn",
+                headless=True,
+            ):
+                pass
+
+            # Verify Popen was called with the scene parameter
+            mock_popen.assert_called_once()
+            cmd = mock_popen.call_args[0][0]
+            assert "--scene" in cmd
+            scene_index = cmd.index("--scene")
+            assert cmd[scene_index + 1] == "res://scenes/test.tscn"
+
+    @pytest.mark.asyncio
+    async def test_launch_without_scene_parameter(self, tmp_path) -> None:
+        """Test that scene parameter is not included when not provided."""
+        project_path = tmp_path / "project"
+        project_path.mkdir()
+
+        with patch("subprocess.Popen") as mock_popen, \
+             patch.object(Godot, "_find_godot", return_value="/usr/bin/godot"), \
+             patch("playgodot.godot.NativeClient") as mock_client_class:
+
+            mock_process = MagicMock()
+            mock_process.poll.return_value = None
+            mock_popen.return_value = mock_process
+
+            mock_client = AsyncMock()
+            mock_client._start_server = AsyncMock()
+            mock_client.connect = AsyncMock()
+            mock_client.disconnect = AsyncMock()
+            mock_client_class.return_value = mock_client
+
+            async with Godot.launch(
+                str(project_path),
+                headless=True,
+            ):
+                pass
+
+            # Verify Popen was called without the scene parameter
+            mock_popen.assert_called_once()
+            cmd = mock_popen.call_args[0][0]
+            assert "--scene" not in cmd
+
+    @pytest.mark.asyncio
+    async def test_launch_scene_with_other_options(self, tmp_path) -> None:
+        """Test that scene parameter works with other options."""
+        project_path = tmp_path / "project"
+        project_path.mkdir()
+
+        with patch("subprocess.Popen") as mock_popen, \
+             patch.object(Godot, "_find_godot", return_value="/usr/bin/godot"), \
+             patch("playgodot.godot.NativeClient") as mock_client_class:
+
+            mock_process = MagicMock()
+            mock_process.poll.return_value = None
+            mock_popen.return_value = mock_process
+
+            mock_client = AsyncMock()
+            mock_client._start_server = AsyncMock()
+            mock_client.connect = AsyncMock()
+            mock_client.disconnect = AsyncMock()
+            mock_client_class.return_value = mock_client
+
+            async with Godot.launch(
+                str(project_path),
+                scene="res://scenes/experiment.tscn",
+                headless=True,
+                resolution=(1280, 720),
+                verbose=True,
+            ):
+                pass
+
+            # Verify all expected arguments are present
+            mock_popen.assert_called_once()
+            cmd = mock_popen.call_args[0][0]
+            assert "--headless" in cmd
+            assert "--verbose" in cmd
+            assert "--resolution" in cmd
+            assert "1280x720" in cmd
+            assert "--scene" in cmd
+            scene_index = cmd.index("--scene")
+            assert cmd[scene_index + 1] == "res://scenes/experiment.tscn"
+
+
 class TestNodeInteraction:
     """Tests for node interaction methods."""
 
