@@ -247,6 +247,25 @@ async with Godot.launch(
     ...
 ```
 
+### Launching a Specific Scene
+
+Test a specific scene directly instead of the project's main scene. This is useful for isolated scene testing without navigating through menus:
+
+```python
+async with Godot.launch(
+    "path/to/game",
+    scene="res://scenes/experiment.tscn"
+) as game:
+    await game.wait_for_node("/root/Experiment")
+    # Test the scene directly
+```
+
+This enables:
+- **Faster tests**: Skip navigation, test scenes directly
+- **Better isolation**: Each scene can have independent tests
+- **Simpler fixtures**: One fixture per testable scene
+- **More robust tests**: Tests don't break when navigation UI changes
+
 ## Connecting to a Running Game
 
 Instead of launching a new instance, you can connect to an already-running game:
