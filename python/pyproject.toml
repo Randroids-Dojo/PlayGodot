@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "playgodot"
-version = "0.5.1"
+version = "0.6.0"
 description = "External automation and testing framework for Godot Engine games"
 readme = "README.md"
 license = {text = "MIT"}

@@ -138,6 +138,12 @@ game = await Godot.launch(
     verbose=True,            # Enable debug logging
 )
 
+# Launch a specific scene (useful for isolated scene testing)
+game = await Godot.launch(
+    "path/to/project",
+    scene="res://scenes/experiment.tscn",  # Run this scene instead of main
+)
+
 # Connect to already-running game
 game = await Godot.connect("localhost", 6007)
 ```

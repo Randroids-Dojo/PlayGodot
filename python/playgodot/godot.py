@@ -54,6 +54,7 @@ class Godot:
         timeout: float = 30.0,
         godot_path: str | None = None,
         verbose: bool = False,
+        scene: str | None = None,
     ) -> AsyncGenerator[Godot, None]:
         """Launch a Godot project and connect to it.
 
@@ -65,6 +66,7 @@ class Godot:
             timeout: Connection timeout in seconds.
             godot_path: Path to Godot executable (auto-detected if not provided).
             verbose: Enable verbose logging.
+            scene: Scene to run instead of the main scene (e.g., "res://scenes/test.tscn").
 
         Yields:
             A connected Godot instance.
@@ -83,6 +85,9 @@ class Godot:
 
         if verbose:
             cmd.append("--verbose")
+
+        if scene:
+            cmd.extend(["--scene", scene])
 
         # Enable remote debugging
         cmd.extend(["--remote-debug", f"tcp://127.0.0.1:{port}"])
